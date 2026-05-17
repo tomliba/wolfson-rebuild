@@ -6,19 +6,28 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, ClipboardCheck, Scissors, Film, ChevronLeft } from "lucide-react";
+import { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell } from "@/components/ui/table";
+import { Users, ClipboardCheck, Scissors, Film, ChevronLeft, Download } from "lucide-react";
 import ProgressRing from '@/components/shared/ProgressRing';
 import TaskList from '@/components/tasks/TaskList';
 import SurgeryCard from '@/components/surgery/SurgeryCard';
 import StepsSummary from '@/components/surgery/StepsSummary';
 import VideoCard from '@/components/video/VideoCard';
 import { SURGERY_STEPS } from '@/components/shared/SurgerySteps';
+import * as XLSX from 'xlsx';
+
+const MONTHS_HE = ['ינו','פבר','מרץ','אפר','מאי','יונ','יול','אוג','ספט','אוק','נוב','דצמ'];
+const MONTHS_HE_FULL = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
 
 export default function AdminPanel() {
   const [user, setUser] = useState(null);
   const [selectedResident, setSelectedResident] = useState(null);
+  const now = new Date();
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const router = useRouter();
 
   useEffect(() => {
@@ -158,15 +167,125 @@ export default function AdminPanel() {
     );
   }
 
+  // Section 1: Resident surgery summary by month for selected year
+  const surgerySummaryData = residents.map(r => {
+    const monthly = MONTHS_HE.map((_, i) => {
+      return allSurgeries.filter(s => {
+        if (s.resident_email !== r.email || !s.surgery_date) return false;
+        const d = new Date(s.surgery_date);
+        return d.getMonth() === i && d.getFullYear() === selectedYear;
+      }).length;
+    });
+    const total = monthly.reduce((a, b) => a + b, 0);
+    return { name: r.full_name || r.email, email: r.email, monthly, total };
+  });
+  const monthlyTotals = MONTHS_HE.map((_, i) =>
+    surgerySummaryData.reduce((sum, r) => sum + r.monthly[i], 0)
+  );
+  const grandTotal = monthlyTotals.reduce((a, b) => a + b, 0);
+
+  // Section 2: Surgeries by supervising surgeon (filtered by selected month+year)
+  const monthFilteredSurgeries = allSurgeries.filter(s => {
+    if (!s.surgery_date) return false;
+    const d = new Date(s.surgery_date);
+    return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+  });
+  const supervisors = [...new Set(monthFilteredSurgeries.map(s => s.supervising_surgeon).filter(Boolean))].sort();
+
+  // Section 3: Surgery step progression (all-time per year)
+  const yearFilteredSurgeries = allSurgeries.filter(s => {
+    if (!s.surgery_date) return false;
+    return new Date(s.surgery_date).getFullYear() === selectedYear;
+  });
+
+  const stepProgressionData = residents.map(r => {
+    const residentSurgeries = yearFilteredSurgeries.filter(s => s.resident_email === r.email);
+    const stepCounts = {};
+    SURGERY_STEPS.forEach(step => {
+      stepCounts[step.id] = residentSurgeries.filter(s => s.steps_performed?.includes(step.id)).length;
+    });
+    return { name: r.full_name || r.email, stepCounts };
+  });
+
+  const stepCellColor = (count) => {
+    if (count === 0) return 'bg-muted text-muted-foreground';
+    if (count <= 5) return 'bg-blue-100 text-blue-800';
+    return 'bg-blue-600 text-white';
+  };
+
+  // Excel export
+  const exportAdminExcel = () => {
+    const sheet1Data = surgerySummaryData.map(r => {
+      const row = { 'מתמחה': r.name };
+      MONTHS_HE.forEach((m, i) => { row[m] = r.monthly[i]; });
+      row['סה"כ'] = r.total;
+      return row;
+    });
+    const totalsRow = { 'מתמחה': 'סה"כ' };
+    MONTHS_HE.forEach((m, i) => { totalsRow[m] = monthlyTotals[i]; });
+    totalsRow['סה"כ'] = grandTotal;
+    sheet1Data.push(totalsRow);
+
+    const sheet2Data = [];
+    supervisors.forEach(sup => {
+      const row = { 'מנתח מפקח': sup };
+      residents.forEach(r => {
+        const name = r.full_name || r.email;
+        row[name] = monthFilteredSurgeries.filter(s => s.supervising_surgeon === sup && s.resident_email === r.email).length;
+      });
+      sheet2Data.push(row);
+    });
+
+    const sheet3Data = stepProgressionData.map(r => {
+      const row = { 'מתמחה': r.name };
+      SURGERY_STEPS.forEach(step => { row[step.label] = r.stepCounts[step.id]; });
+      return row;
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheet1Data), 'סיכום ניתוחים');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheet2Data), 'לפי מנתח מפקח');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheet3Data), 'התקדמות שלבים');
+    XLSX.writeFile(wb, `דוח_ניתוחים_${MONTHS_HE_FULL[selectedMonth]}_${selectedYear}.xlsx`);
+  };
+
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto" dir="rtl">
-      <div className="flex items-center gap-3">
-        <div className="p-2.5 rounded-xl bg-primary/10">
-          <Users className="w-5 h-5 text-primary" />
+    <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto" dir="rtl">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-primary/10">
+            <Users className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-foreground">פאנל ניהול</h1>
+            <p className="text-xs text-muted-foreground">{residents.length} מתמחים רשומים</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold text-foreground">פאנל ניהול</h1>
-          <p className="text-xs text-muted-foreground">{residents.length} מתמחים רשומים</p>
+        <div className="flex items-center gap-2">
+          <Select value={String(selectedMonth)} onValueChange={(v) => setSelectedMonth(parseInt(v))}>
+            <SelectTrigger className="w-28 h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MONTHS_HE_FULL.map((m, i) => (
+                <SelectItem key={i} value={String(i)}>{m}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+            <SelectTrigger className="w-20 h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map(y => (
+                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="sm" onClick={exportAdminExcel} className="h-8 text-xs gap-1.5">
+            <Download className="w-3.5 h-3.5" />
+            ייצוא לאקסל
+          </Button>
         </div>
       </div>
 
@@ -214,6 +333,111 @@ export default function AdminPanel() {
           </div>
         )}
       </div>
+
+      {/* Section 1: Resident Surgery Summary */}
+      <Card className="p-5">
+        <h3 className="text-sm font-semibold text-foreground mb-4">סיכום ניתוחים למתמחים ({selectedYear})</h3>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-right font-semibold">מתמחה</TableHead>
+              {MONTHS_HE.map(m => (
+                <TableHead key={m} className="text-center text-xs px-1">{m}</TableHead>
+              ))}
+              <TableHead className="text-center font-semibold">סה"כ</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {surgerySummaryData.map(r => (
+              <TableRow key={r.email}>
+                <TableCell className="text-right text-xs font-medium">{r.name}</TableCell>
+                {r.monthly.map((count, i) => (
+                  <TableCell key={i} className="text-center text-xs">{count || ''}</TableCell>
+                ))}
+                <TableCell className="text-center text-xs font-bold">{r.total}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+          <TableFooter>
+            <TableRow>
+              <TableCell className="text-right text-xs font-bold">סה"כ</TableCell>
+              {monthlyTotals.map((t, i) => (
+                <TableCell key={i} className="text-center text-xs font-bold">{t || ''}</TableCell>
+              ))}
+              <TableCell className="text-center text-xs font-bold">{grandTotal}</TableCell>
+            </TableRow>
+          </TableFooter>
+        </Table>
+      </Card>
+
+      {/* Section 2: Surgeries by Supervising Surgeon */}
+      <Card className="p-5">
+        <h3 className="text-sm font-semibold text-foreground mb-1">ניתוחים לפי מנתח מפקח</h3>
+        <p className="text-xs text-muted-foreground mb-4">{MONTHS_HE_FULL[selectedMonth]} {selectedYear}</p>
+        {supervisors.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-4">אין נתונים לחודש הנבחר</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-right font-semibold">מנתח מפקח</TableHead>
+                {residents.map(r => (
+                  <TableHead key={r.email} className="text-center text-xs px-1">{r.full_name || r.email}</TableHead>
+                ))}
+                <TableHead className="text-center font-semibold">סה"כ</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {supervisors.map(sup => {
+                const rowTotal = residents.reduce((sum, r) =>
+                  sum + monthFilteredSurgeries.filter(s => s.supervising_surgeon === sup && s.resident_email === r.email).length, 0
+                );
+                return (
+                  <TableRow key={sup}>
+                    <TableCell className="text-right text-xs font-medium">{sup}</TableCell>
+                    {residents.map(r => {
+                      const count = monthFilteredSurgeries.filter(s => s.supervising_surgeon === sup && s.resident_email === r.email).length;
+                      return <TableCell key={r.email} className="text-center text-xs">{count || ''}</TableCell>;
+                    })}
+                    <TableCell className="text-center text-xs font-bold">{rowTotal}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </Card>
+
+      {/* Section 3: Surgery Stage Progression */}
+      <Card className="p-5">
+        <h3 className="text-sm font-semibold text-foreground mb-1">התקדמות שלבי ניתוח</h3>
+        <p className="text-xs text-muted-foreground mb-4">{selectedYear}</p>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-right font-semibold">מתמחה</TableHead>
+              {SURGERY_STEPS.map(step => (
+                <TableHead key={step.id} className="text-center text-[10px] px-1 leading-tight">{step.label}</TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {stepProgressionData.map(r => (
+              <TableRow key={r.name}>
+                <TableCell className="text-right text-xs font-medium">{r.name}</TableCell>
+                {SURGERY_STEPS.map(step => {
+                  const count = r.stepCounts[step.id];
+                  return (
+                    <TableCell key={step.id} className={`text-center text-xs font-bold ${stepCellColor(count)}`}>
+                      {count}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
     </div>
   );
 }
