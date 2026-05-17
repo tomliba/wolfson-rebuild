@@ -1,7 +1,7 @@
 'use client';
 
 import React, { forwardRef } from 'react';
-import { PieChart, Pie, Cell, Legend, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Legend, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LabelList } from 'recharts';
 
 const COLORS = ['#378ADD','#1D9E75','#D85A30','#7F77DD','#D4537E','#BA7517','#639922','#5F5E5A','#85B7EB','#5DCAA5','#F0997B','#AFA9EC','#ED93B1','#97C459'];
 
@@ -15,7 +15,7 @@ const ResidentCountChart = forwardRef(function ResidentCountChart({ surgeries, r
   let data = residents.map(r => ({
     name: r.full_name || r.email,
     value: filtered.filter(s => s.resident_email === r.email).length,
-  })).sort((a, b) => b.value - a.value);
+  })).filter(d => d.value > 0).sort((a, b) => b.value - a.value);
 
   if (showTop3 && data.length > 3) {
     const top3 = data.slice(0, 3);
@@ -25,16 +25,21 @@ const ResidentCountChart = forwardRef(function ResidentCountChart({ surgeries, r
 
   const total = data.reduce((s, d) => s + d.value, 0);
 
+  if (data.length === 0) {
+    return <div ref={ref} className="flex items-center justify-center h-[200px] text-sm text-muted-foreground">אין נתונים</div>;
+  }
+
   if (chartType === 'bar') {
     return (
-      <div ref={ref} dir="rtl" style={{ width: '100%', height: 300 }}>
+      <div ref={ref} dir="rtl" style={{ width: '100%', height: Math.max(200, data.length * 40 + 40) }}>
         <ResponsiveContainer>
-          <BarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+          <BarChart data={data} layout="vertical" margin={{ top: 5, right: 40, left: 10, bottom: 5 }}>
             <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-            <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={80} />
+            <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={90} />
             <Tooltip contentStyle={{ direction: 'rtl', fontSize: 12 }} />
-            <Bar dataKey="value" name="ניתוחים" radius={[0, 4, 4, 0]}>
+            <Bar dataKey="value" name="ניתוחים" radius={[0, 6, 6, 0]} barSize={24}>
               {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              <LabelList dataKey="value" position="right" style={{ fontSize: 12, fontWeight: 600 }} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -43,37 +48,45 @@ const ResidentCountChart = forwardRef(function ResidentCountChart({ surgeries, r
   }
 
   if (chartType === 'dots') {
-    const maxVal = Math.max(...data.map(d => d.value), 1);
     return (
-      <div ref={ref} dir="rtl" className="space-y-2 p-3">
+      <div ref={ref} dir="rtl" className="space-y-2.5 p-3">
         {data.map((d, i) => (
           <div key={d.name} className="flex items-center gap-2">
-            <span className="text-xs font-medium w-20 text-right shrink-0">{d.name}</span>
-            <div className="flex gap-1 flex-wrap">
+            <span className="text-xs font-medium w-20 text-right shrink-0 truncate">{d.name}</span>
+            <div className="flex gap-1 flex-wrap flex-1">
               {Array.from({ length: d.value }).map((_, j) => (
-                <div key={j} className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                <div key={j} className="w-4 h-4 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
               ))}
             </div>
-            <span className="text-xs text-muted-foreground mr-1">{d.value}</span>
+            <span className="text-sm font-bold text-foreground mr-1">{d.value}</span>
           </div>
         ))}
       </div>
     );
   }
 
-  // Default: donut
   return (
-    <div ref={ref} dir="rtl" style={{ width: '100%', height: 300 }}>
+    <div ref={ref} dir="rtl" style={{ width: '100%', height: 280 }}>
       <ResponsiveContainer>
         <PieChart>
-          <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={90} dataKey="value" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`} labelLine={false} style={{ fontSize: 10 }}>
+          <Pie data={data} cx="50%" cy="45%" innerRadius={45} outerRadius={75} dataKey="value" paddingAngle={2} labelLine={false} label={false}>
             {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
           </Pie>
-          <Legend formatter={(value, entry) => {
-            const item = data.find(d => d.name === value);
-            return `${value}: ${item?.value || 0} (${total ? ((item?.value / total) * 100).toFixed(0) : 0}%)`;
-          }} wrapperStyle={{ fontSize: 11, direction: 'rtl' }} />
-          <Tooltip contentStyle={{ direction: 'rtl', fontSize: 12 }} />
+          <text x="50%" y="45%" textAnchor="middle" dominantBaseline="central" style={{ fontSize: 22, fontWeight: 700, fill: '#1a1a1a' }}>{total}</text>
+          <text x="50%" y="45%" dy={22} textAnchor="middle" style={{ fontSize: 10, fill: '#888' }}>ניתוחים</text>
+          <Legend
+            layout="horizontal"
+            align="center"
+            verticalAlign="bottom"
+            iconType="circle"
+            iconSize={8}
+            formatter={(value) => {
+              const item = data.find(d => d.name === value);
+              return `${value} (${item?.value || 0})`;
+            }}
+            wrapperStyle={{ fontSize: 11, direction: 'rtl', paddingTop: 4 }}
+          />
+          <Tooltip contentStyle={{ direction: 'rtl', fontSize: 12 }} formatter={(v) => [v, 'ניתוחים']} />
         </PieChart>
       </ResponsiveContainer>
     </div>

@@ -4,11 +4,11 @@ import React, { forwardRef } from 'react';
 
 const MONTHS = ['ינו','פבר','מרץ','אפר','מאי','יונ','יול','אוג','ספט','אוק','נוב','דצמ'];
 
-function cellColor(count) {
-  if (count === 0) return { bg: '#e5e7eb', text: '#9ca3af' };
-  if (count <= 3) return { bg: '#B5D4F4', text: '#1e3a5f' };
-  if (count <= 6) return { bg: '#378ADD', text: '#ffffff' };
-  return { bg: '#185FA5', text: '#ffffff' };
+function cellStyle(count) {
+  if (count === 0) return { backgroundColor: '#f3f4f6', color: '#d1d5db' };
+  if (count <= 3) return { backgroundColor: '#B5D4F4', color: '#1e3a5f' };
+  if (count <= 6) return { backgroundColor: '#378ADD', color: '#ffffff' };
+  return { backgroundColor: '#185FA5', color: '#ffffff' };
 }
 
 const MonthlyHeatmap = forwardRef(function MonthlyHeatmap({ surgeries, residents, selectedYear }, ref) {
@@ -29,30 +29,27 @@ const MonthlyHeatmap = forwardRef(function MonthlyHeatmap({ surgeries, residents
   });
 
   return (
-    <div ref={ref} dir="rtl" className="overflow-auto">
-      <table className="w-full text-xs border-collapse">
+    <div ref={ref} dir="rtl" className="overflow-x-auto">
+      <table className="w-full text-xs border-collapse" style={{ minWidth: 480 }}>
         <thead>
           <tr>
-            <th className="p-1.5 text-right font-semibold border border-border bg-muted">מתמחה</th>
+            <th className="p-2 text-right font-semibold bg-muted/60 border border-border/50 whitespace-nowrap">מתמחה</th>
             {MONTHS.map(m => (
-              <th key={m} className="p-1.5 text-center font-medium border border-border bg-muted min-w-[36px]">{m}</th>
+              <th key={m} className="p-1.5 text-center font-medium bg-muted/60 border border-border/50 w-9">{m}</th>
             ))}
-            <th className="p-1.5 text-center font-semibold border border-border bg-muted">סה"כ</th>
+            <th className="p-1.5 text-center font-bold bg-muted/60 border border-border/50 w-10">סה"כ</th>
           </tr>
         </thead>
         <tbody>
           {data.map(r => (
             <tr key={r.name}>
-              <td className="p-1.5 text-right font-medium border border-border">{r.name}</td>
-              {r.monthly.map((count, i) => {
-                const c = cellColor(count);
-                return (
-                  <td key={i} className="p-1.5 text-center border border-border font-bold" style={{ backgroundColor: c.bg, color: c.text }}>
-                    {count}
-                  </td>
-                );
-              })}
-              <td className="p-1.5 text-center font-bold border border-border bg-muted">{r.total}</td>
+              <td className="p-2 text-right font-medium border border-border/50 whitespace-nowrap">{r.name}</td>
+              {r.monthly.map((count, i) => (
+                <td key={i} className="p-1.5 text-center border border-border/50 font-bold rounded-sm" style={cellStyle(count)}>
+                  {count || ''}
+                </td>
+              ))}
+              <td className="p-1.5 text-center font-bold border border-border/50 bg-muted/40">{r.total}</td>
             </tr>
           ))}
         </tbody>
