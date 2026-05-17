@@ -27,6 +27,8 @@ export default function VideoForm({ onSubmit, onCancel, initialData }) {
   const [meetingDateObj, setMeetingDateObj] = useState(
     initialData?.meeting_date ? new Date(initialData.meeting_date) : new Date()
   );
+  const [reviewCalendarOpen, setReviewCalendarOpen] = useState(false);
+  const [meetingCalendarOpen, setMeetingCalendarOpen] = useState(false);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -49,7 +51,7 @@ export default function VideoForm({ onSubmit, onCancel, initialData }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-xs">תאריך מעבר</Label>
-              <Popover>
+              <Popover open={reviewCalendarOpen} onOpenChange={setReviewCalendarOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full justify-start text-sm">
                     <CalendarIcon className="w-4 h-4 ml-2" />
@@ -57,7 +59,7 @@ export default function VideoForm({ onSubmit, onCancel, initialData }) {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={reviewDateObj} onSelect={(d) => d && setReviewDateObj(d)} />
+                  <Calendar mode="single" selected={reviewDateObj} onSelect={(d) => { if (d) { setReviewDateObj(d); setReviewCalendarOpen(false); } }} />
                 </PopoverContent>
               </Popover>
             </div>
@@ -104,7 +106,7 @@ export default function VideoForm({ onSubmit, onCancel, initialData }) {
           {formData.presented_in_meeting && (
             <div className="space-y-1.5">
               <Label className="text-xs">תאריך ישיבת שמיים</Label>
-              <Popover>
+              <Popover open={meetingCalendarOpen} onOpenChange={setMeetingCalendarOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="justify-start text-sm">
                     <CalendarIcon className="w-4 h-4 ml-2" />
@@ -112,7 +114,7 @@ export default function VideoForm({ onSubmit, onCancel, initialData }) {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={meetingDateObj} onSelect={(d) => d && setMeetingDateObj(d)} />
+                  <Calendar mode="single" selected={meetingDateObj} onSelect={(d) => { if (d) { setMeetingDateObj(d); setMeetingCalendarOpen(false); } }} />
                 </PopoverContent>
               </Popover>
             </div>

@@ -1,0 +1,36 @@
+=== BUG A V2: Detailed Error Capture ===
+
+--- Page Errors (with stack traces) ---
+Error 1:
+Error: Minified React error #185; visit https://react.dev/errors/185 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.
+    at rh (http://localhost:3000/_next/static/chunks/07lhk_q6pmm3r.js:1:42845)
+    at rd (http://localhost:3000/_next/static/chunks/07lhk_q6pmm3r.js:1:42369)
+    at oy (http://localhost:3000/_next/static/chunks/07lhk_q6pmm3r.js:1:75236)
+    at ov (http://localhost:3000/_next/static/chunks/07lhk_q6pmm3r.js:1:74839)
+    at r (http://localhost:3000/_next/static/chunks/00yij-jxs0-.i.js:1:200)
+    at http://localhost:3000/_next/static/chunks/00yij-jxs0-.i.js:1:283
+    at Array.map (<anonymous>)
+    at http://localhost:3000/_next/static/chunks/00yij-jxs0-.i.js:1:269
+    at r (http://localhost:3000/_next/static/chunks/00yij-jxs0-.i.js:1:200)
+    at http://localhost:3000/_next/static/chunks/00yij-jxs0-.i.js:1:283
+
+
+--- Window Captured Errors ---
+[
+  {
+    "message": "Uncaught Error: Minified React error #185; visit https://react.dev/errors/185 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+    "filename": "http://localhost:3000/_next/static/chunks/07lhk_q6pmm3r.js",
+    "lineno": 1,
+    "colno": 42845,
+    "stack": "Error: Minified React error #185; visit https://react.dev/errors/185 for the full message or use the non-minified dev environment for full errors and additional helpful warnings.\n    at rh (http://localhost:3000/_next/static/chunks/07lhk_q6pmm3r.js:1:42845)\n    at rd (http://localhost:3000/_next/static/chunks/07lhk_q6pmm3r.js:1:42369)\n    at oy (http://localhost:3000/_next/static/chunks/07lhk_q6pmm3r.js:1:75236)\n    at ov (http://localhost:3000/_next/static/chunks/07lhk_q6pmm3r.js:1:74839)\n    at r (http://localhost:3000/_next/static/chunks/00yij-jxs0-.i.js:1:200)\n    at http://localhost:3000/_next/static/chunks/00yij-jxs0-.i.js:1:283\n    at Array.map (<anonymous>)\n    at http://localhost:3000/_next/static/chunks/00yij-jxs0-.i.js:1:269\n    at r (http://localhost:3000/_next/static/chunks/00yij-jxs0-.i.js:1:200)\n    at http://localhost:3000/_next/static/chunks/00yij-jxs0-.i.js:1:283"
+  }
+]
+
+--- Next.js Error Overlay ---
+Visible: false
+Overlay content: not found
+
+--- Page text after crash (200ch) ---
+(self.__next_f=self.__next_f||[]).push([0])self.__next_f.push([1,"1:\"$Sreact.fragment\"\n2:I[65174,[\"/_next/static/chunks/12hjxom0d.yi6.js\",\"/_next/static/chunks/1860zsbcg5z1o.js\"],\"default\"]\n3:I[39756,[\"/_next/static/chunks/12hjxom0d.yi6.js\",\"/_next/static/chunks/1860zsbcg5z1o.js\"],\"default\"]\n4:I[37457,[\"/_next/static/chunks/12hjxom0d.yi6.js\",\"/_next/static/chunks/1860zsbcg5z1o.js\"],\"default\"]\n6:I[47257,[\"/_next/static/chunks/12hjxom0d.yi6.js\",\"/_next/static/chunks/1860
+
+--- All Console Messages ---

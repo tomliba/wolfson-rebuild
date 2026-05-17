@@ -18,7 +18,10 @@ function makeEntity(tableName) {
         query = query.order(sort.column, { ascending: sort.ascending });
       }
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', tableName, error.message, error.details, error.hint);
+        throw new Error(error.message);
+      }
       return data;
     },
 
@@ -33,7 +36,10 @@ function makeEntity(tableName) {
         query = query.order(sort.column, { ascending: sort.ascending });
       }
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', tableName, error.message, error.details, error.hint);
+        throw new Error(error.message);
+      }
       return data;
     },
 
@@ -44,7 +50,10 @@ function makeEntity(tableName) {
         .insert(record)
         .select()
         .single();
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', tableName, error.message, error.details, error.hint);
+        throw new Error(error.message);
+      }
       return data;
     },
 
@@ -56,7 +65,10 @@ function makeEntity(tableName) {
         .eq('id', id)
         .select()
         .single();
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', tableName, error.message, error.details, error.hint);
+        throw new Error(error.message);
+      }
       return data;
     },
 
@@ -66,7 +78,10 @@ function makeEntity(tableName) {
         .from(tableName)
         .delete()
         .eq('id', id);
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', tableName, error.message, error.details, error.hint);
+        throw new Error(error.message);
+      }
     },
   };
 }

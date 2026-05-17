@@ -34,7 +34,7 @@ async function clickStep(page, label) {
 // ============================================================
 test.describe('A. Auth tests', () => {
   test('login with correct password redirects to /', async ({ browser }) => {
-    const context = await browser.newContext();
+    const context = await browser.newContext({ baseURL: 'http://localhost:3000', storageState: undefined });
     const page = await context.newPage();
     await page.goto('/login');
     await page.waitForLoadState('networkidle');
@@ -50,7 +50,7 @@ test.describe('A. Auth tests', () => {
   });
 
   test('login with wrong password shows error', async ({ browser }) => {
-    const context = await browser.newContext();
+    const context = await browser.newContext({ baseURL: 'http://localhost:3000', storageState: undefined });
     const page = await context.newPage();
     await page.goto('/login');
     await page.waitForLoadState('networkidle');
@@ -67,9 +67,9 @@ test.describe('A. Auth tests', () => {
   });
 
   test('direct access to / when logged out shows login', async ({ browser }) => {
-    const context = await browser.newContext();
+    const context = await browser.newContext({ baseURL: 'http://localhost:3000', storageState: undefined });
     const page = await context.newPage();
-    await page.goto('http://localhost:3000/');
+    await page.goto('/');
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(5000);
     await page.screenshot({ path: path.join(screenshotsDir, 'auth-redirect-to-login.png') });
@@ -101,7 +101,7 @@ test.describe('B. Dashboard tests', () => {
 
     await expect(page.locator('text=מטלות שהושלמו')).toBeVisible();
     await expect(page.locator('text=סרטים שנצפו')).toBeVisible();
-    await expect(page.locator('text=הוצגו בשמיים')).toBeVisible();
+    await expect(page.locator('text=הוצגו בשמיים').first()).toBeVisible();
     await page.screenshot({ path: path.join(screenshotsDir, 'dashboard-stat-cards.png') });
   });
 
@@ -200,7 +200,7 @@ test.describe('C. Tasks tests', () => {
     await page.waitForLoadState('networkidle');
 
     // Verify checkmark appeared
-    const checkmarks = page.locator('svg.lucide-check-circle-2');
+    const checkmarks = page.locator('svg.lucide-circle-check');
     await expect(checkmarks.first()).toBeVisible({ timeout: 5000 });
     await page.screenshot({ path: path.join(screenshotsDir, 'tasks-completion-created.png') });
 
@@ -212,7 +212,7 @@ test.describe('C. Tasks tests', () => {
       await page.waitForTimeout(3000);
       await page.waitForLoadState('networkidle');
 
-      const afterCount = await page.locator('svg.lucide-check-circle-2').count();
+      const afterCount = await page.locator('svg.lucide-circle-check').count();
       expect(afterCount).toBeLessThan(beforeCount);
       await page.screenshot({ path: path.join(screenshotsDir, 'tasks-completion-removed.png') });
     }
@@ -672,6 +672,7 @@ test.describe('I. Error handling tests', () => {
 test.describe('Z. Logout test', () => {
   test('logout button returns to /login', async ({ browser }) => {
     const context = await browser.newContext({
+      baseURL: 'http://localhost:3000',
       storageState: './tests/auth-state.json',
     });
     const page = await context.newPage();

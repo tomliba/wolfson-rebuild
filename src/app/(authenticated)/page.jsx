@@ -16,6 +16,8 @@ import * as XLSX from 'xlsx';
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
     auth.me().then(setUser);
@@ -42,6 +44,18 @@ export default function Dashboard() {
     queryKey: ['videos', user?.email],
     queryFn: () => entities.VideoReview.filter({ resident_email: user.email }),
     enabled: !!user?.email
+  });
+
+  const filteredSurgeries = surgeries.filter(s => {
+    if (!s.surgery_date) return false;
+    const d = new Date(s.surgery_date);
+    return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+  });
+
+  const filteredVideos = videos.filter(v => {
+    if (!v.review_date) return false;
+    const d = new Date(v.review_date);
+    return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
   });
 
   const exportToExcel = () => {
@@ -149,44 +163,28 @@ export default function Dashboard() {
   }
 
   const taskProgress = tasks.length > 0 ? (completions.length / tasks.length) * 100 : 0;
-  const videosPresented = videos.filter(v => v.presented_in_meeting).length;
+  const filteredVideosPresented = filteredVideos.filter(v => v.presented_in_meeting).length;
 
-  const totalSteps = surgeries.reduce((acc, s) => acc + (s.steps_performed?.length || 0), 0);
+  const phacolaserCount = filteredSurgeries.filter(s => s.surgery_type === 'phacolaser').length;
 
-  const stepCounts = {};
-  surgeries.forEach(s => {
-    s.steps_performed?.forEach(step => {
-      stepCounts[step] = (stepCounts[step] || 0) + 1;
-    });
-  });
-  const topStep = Object.entries(stepCounts).sort((a, b) => b[1] - a[1])[0];
-  const topStepLabel = topStep ? SURGERY_STEPS.find(s => s.id === topStep[0])?.label : "-";
-
-  const partialSurgeries = surgeries.filter(s => {
-    const totalForType = s.surgery_type === 'phacolaser' ? 6 : SURGERY_STEPS.length;
-    return s.steps_performed?.length > 0 && s.steps_performed?.length < totalForType;
-  }).length;
-
-  const phacolaserCount = surgeries.filter(s => s.surgery_type === 'phacolaser').length;
-
-  const toricCount = surgeries.filter(s =>
+  const toricCount = filteredSurgeries.filter(s =>
     s.steps_performed?.includes('laser_toric_iol') || s.steps_performed?.includes('toric_iol')
   ).length;
 
   const complexSurgeries = {
-    pupilExpansion: surgeries.filter(s => s.notes?.includes('הרחבת אישון') || s.complications?.includes('הרחבת אישון')).length,
-    matureICE: surgeries.filter(s => s.notes?.includes('ירוד בשל') || s.complications?.includes('ירוד בשל')).length,
-    deepSet: surgeries.filter(s => s.notes?.includes('עין שקועה') || s.complications?.includes('עין שקועה')).length,
-    shallowAC: surgeries.filter(s => s.notes?.includes('לשכה קדמית רדודה') || s.complications?.includes('לשכה קדמית רדודה')).length,
+    pupilExpansion: filteredSurgeries.filter(s => s.notes?.includes('הרחבת אישון') || s.complications?.includes('הרחבת אישון')).length,
+    matureICE: filteredSurgeries.filter(s => s.notes?.includes('ירוד בשל') || s.complications?.includes('ירוד בשל')).length,
+    deepSet: filteredSurgeries.filter(s => s.notes?.includes('עין שקועה') || s.complications?.includes('עין שקועה')).length,
+    shallowAC: filteredSurgeries.filter(s => s.notes?.includes('לשכה קדמית רדודה') || s.complications?.includes('לשכה קדמית רדודה')).length,
   };
   const totalComplex = Object.values(complexSurgeries).reduce((a, b) => a + b, 0);
 
   const complications = {
-    anteriorCapsuleTear: surgeries.filter(s => s.complications?.includes('קרע בקופסית קדמית')).length,
-    posteriorCapsuleTear: surgeries.filter(s => s.complications?.includes('קרע בקופסית אחורית')).length,
-    zonulysis: surgeries.filter(s => s.complications?.includes('זונוליזיס')).length,
-    anteriorVitrectomy: surgeries.filter(s => s.complications?.includes('ויטרקטומיה קדמית')).length,
-    sulcusIOL: surgeries.filter(s => s.complications?.includes('השתלת עדשה בסולקוס')).length,
+    anteriorCapsuleTear: filteredSurgeries.filter(s => s.complications?.includes('קרע בקופסית קדמית')).length,
+    posteriorCapsuleTear: filteredSurgeries.filter(s => s.complications?.includes('קרע בקופסית אחורית')).length,
+    zonulysis: filteredSurgeries.filter(s => s.complications?.includes('זונוליזיס')).length,
+    anteriorVitrectomy: filteredSurgeries.filter(s => s.complications?.includes('ויטרקטומיה קדמית')).length,
+    sulcusIOL: filteredSurgeries.filter(s => s.complications?.includes('השתלת עדשה בסולקוס')).length,
   };
   const totalComplications = Object.values(complications).reduce((a, b) => a + b, 0);
 
@@ -205,21 +203,21 @@ export default function Dashboard() {
     return { ...d, מצטבר: cumulative };
   });
 
-  const fullSurgeries = surgeries.filter(s => s.surgery_type !== 'phacolaser' && s.steps_performed?.includes('solo')).length;
-  const manualPartialWithPhaco = surgeries.filter(s =>
+  const fullSurgeries = filteredSurgeries.filter(s => s.surgery_type !== 'phacolaser' && s.steps_performed?.includes('solo')).length;
+  const manualPartialWithPhaco = filteredSurgeries.filter(s =>
     s.surgery_type !== 'phacolaser' &&
     !s.steps_performed?.includes('solo') &&
     (s.steps_performed?.length || 0) > 0 &&
     s.steps_performed?.includes('phacoemulsification')
   ).length;
-  const manualPartialWithoutPhaco = surgeries.filter(s =>
+  const manualPartialWithoutPhaco = filteredSurgeries.filter(s =>
     s.surgery_type !== 'phacolaser' &&
     !s.steps_performed?.includes('solo') &&
     (s.steps_performed?.length || 0) > 0 &&
     !s.steps_performed?.includes('phacoemulsification')
   ).length;
   const manualPartialSurgeries = manualPartialWithPhaco + manualPartialWithoutPhaco;
-  const phacoTotal = surgeries.filter(s => s.surgery_type !== 'phacolaser').length;
+  const phacoTotal = filteredSurgeries.filter(s => s.surgery_type !== 'phacolaser').length;
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto" dir="rtl">
@@ -231,7 +229,7 @@ export default function Dashboard() {
           <p className="text-sm text-muted-foreground mt-1">סקירת התקדמות בהכשרת קטרקט</p>
         </div>
         <div className="flex gap-2">
-          <MonthlyReportPDF user={user} surgeries={surgeries} />
+          <MonthlyReportPDF user={user} surgeries={surgeries} month={selectedMonth} year={selectedYear} onMonthChange={(v) => setSelectedMonth(parseInt(v))} onYearChange={(v) => setSelectedYear(parseInt(v))} />
           <Button variant="outline" size="sm" onClick={exportToExcel} className="flex items-center gap-2">
             <Download className="w-4 h-4" />
             ייצוא לאקסל
@@ -241,9 +239,9 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-stretch">
         <StatCard title="מטלות שהושלמו" value={`${completions.length}/${tasks.length}`} icon={ClipboardCheck} color="primary" />
-        <StatCard title="ניתוחים" value={surgeries.length} icon={Scissors} color="accent" />
-        <StatCard title="סרטים שנצפו" value={videos.length} icon={Film} color="chart1" />
-        <StatCard title="הוצגו בשמיים" value={videosPresented} icon={TrendingUp} color="primary" />
+        <StatCard title="ניתוחים" value={filteredSurgeries.length} icon={Scissors} color="accent" />
+        <StatCard title="סרטים שנצפו" value={filteredVideos.length} icon={Film} color="chart1" />
+        <StatCard title="הוצגו בשמיים" value={filteredVideosPresented} icon={TrendingUp} color="primary" />
       </div>
 
       <Card className="p-5">
@@ -285,7 +283,7 @@ export default function Dashboard() {
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <span className="text-sm font-bold text-foreground">סה״כ ניתוחים</span>
-              <span className="text-sm font-bold text-foreground">{surgeries.filter(s => s.surgery_type !== 'phacolaser').length + phacolaserCount}</span>
+              <span className="text-sm font-bold text-foreground">{filteredSurgeries.length}</span>
             </div>
             <div className="pr-3 space-y-1.5 border-r-2 border-primary/30">
               <div className="flex justify-between items-center">
@@ -356,15 +354,15 @@ export default function Dashboard() {
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-xs text-muted-foreground">סה״כ סרטים</span>
-              <span className="text-sm font-bold text-foreground">{videos.length}</span>
+              <span className="text-sm font-bold text-foreground">{filteredVideos.length}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-xs text-muted-foreground">הוצגו בשמיים</span>
-              <span className="text-sm font-bold text-accent">{videosPresented}</span>
+              <span className="text-sm font-bold text-accent">{filteredVideosPresented}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-xs text-muted-foreground">ממתינים להצגה</span>
-              <span className="text-sm font-bold text-foreground">{videos.length - videosPresented}</span>
+              <span className="text-sm font-bold text-foreground">{filteredVideos.length - filteredVideosPresented}</span>
             </div>
           </div>
         </Card>

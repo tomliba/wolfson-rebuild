@@ -1,0 +1,5 @@
+=== BUG B + C Reproduction Results ===
+
+--- Console Messages ---
+
+--- Page Errors ---

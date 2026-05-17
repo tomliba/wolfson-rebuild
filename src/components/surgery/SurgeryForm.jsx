@@ -32,6 +32,7 @@ export default function SurgeryForm({ onSubmit, onCancel, initialData }) {
   const activeSteps = surgeryType === "phacolaser" ? PHACO_LASER_STEPS : SURGERY_STEPS;
 
   const [dateObj, setDateObj] = useState(initialData?.surgery_date ? new Date(initialData.surgery_date) : new Date());
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const toggleStep = (stepId) => {
     setFormData(prev => ({
@@ -76,7 +77,7 @@ export default function SurgeryForm({ onSubmit, onCancel, initialData }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-xs">תאריך ניתוח</Label>
-              <Popover>
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full justify-start text-sm">
                     <CalendarIcon className="w-4 h-4 ml-2" />
@@ -84,7 +85,7 @@ export default function SurgeryForm({ onSubmit, onCancel, initialData }) {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={dateObj} onSelect={(d) => d && setDateObj(d)} />
+                  <Calendar mode="single" selected={dateObj} onSelect={(d) => { if (d) { setDateObj(d); setCalendarOpen(false); } }} />
                 </PopoverContent>
               </Popover>
             </div>
@@ -132,7 +133,7 @@ export default function SurgeryForm({ onSubmit, onCancel, initialData }) {
                       ? 'bg-primary/5 border-primary/30'
                       : 'hover:bg-muted border-border'
                   }`}
-                  onClick={() => toggleStep(step.id)}
+                  onClick={(e) => { if (!e.isTrusted) return; toggleStep(step.id); }}
                 >
                   <Checkbox
                     checked={formData.steps_performed.includes(step.id)}
@@ -155,7 +156,8 @@ export default function SurgeryForm({ onSubmit, onCancel, initialData }) {
                     className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
                       active ? 'bg-orange-50 border-orange-300' : 'hover:bg-muted border-border'
                     }`}
-                    onClick={() => {
+                    onClick={(e) => {
+                      if (!e.isTrusted) return;
                       const current = formData.notes || '';
                       const updated = active
                         ? current.replace(type, '').replace(/^,\s*|,\s*$|,\s*,/g, '').trim()
@@ -182,7 +184,8 @@ export default function SurgeryForm({ onSubmit, onCancel, initialData }) {
                     className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
                       active ? 'bg-red-50 border-red-300' : 'hover:bg-muted border-border'
                     }`}
-                    onClick={() => {
+                    onClick={(e) => {
+                      if (!e.isTrusted) return;
                       const current = formData.complications || '';
                       const updated = active
                         ? current.replace(comp, '').replace(/^,\s*|,\s*$|,\s*,/g, '').trim()

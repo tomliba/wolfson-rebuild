@@ -24,19 +24,17 @@ function SummaryRow({ label, value, bold, indent, redValue }) {
   );
 }
 
-export default function MonthlyReportPDF({ user, surgeries }) {
+export default function MonthlyReportPDF({ user, surgeries, month, year, onMonthChange, onYearChange }) {
   const [loading, setLoading] = useState(false);
   const now = new Date();
-  const [month, setMonth] = useState(String(now.getMonth()));
-  const [year, setYear] = useState(String(now.getFullYear()));
   const [renderData, setRenderData] = useState(null);
   const reportRef = useRef(null);
   const years = [now.getFullYear() - 1, now.getFullYear()];
 
   async function generatePDF() {
     setLoading(true);
-    const m = parseInt(month);
-    const y = parseInt(year);
+    const m = parseInt(String(month));
+    const y = parseInt(String(year));
 
     const filtered = surgeries.filter(s => {
       if (!s.surgery_date) return false;
@@ -115,7 +113,7 @@ export default function MonthlyReportPDF({ user, surgeries }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Select value={month} onValueChange={setMonth}>
+      <Select value={String(month)} onValueChange={onMonthChange}>
         <SelectTrigger className="w-28 h-8 text-xs">
           <SelectValue />
         </SelectTrigger>
@@ -125,7 +123,7 @@ export default function MonthlyReportPDF({ user, surgeries }) {
           ))}
         </SelectContent>
       </Select>
-      <Select value={year} onValueChange={setYear}>
+      <Select value={String(year)} onValueChange={onYearChange}>
         <SelectTrigger className="w-20 h-8 text-xs">
           <SelectValue />
         </SelectTrigger>

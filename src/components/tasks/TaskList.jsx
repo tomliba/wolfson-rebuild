@@ -15,6 +15,7 @@ export default function TaskList({ tasks, completions, onComplete, onRemoveCompl
   const [editingTask, setEditingTask] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [notes, setNotes] = useState("");
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const getCompletion = (taskId) => {
     return completions.find(c => c.task_id === taskId);
@@ -106,7 +107,7 @@ export default function TaskList({ tasks, completions, onComplete, onRemoveCompl
                         <div className="flex gap-2 items-end flex-wrap">
                           <div>
                             <label className="text-xs text-muted-foreground mb-1 block">תאריך ביצוע</label>
-                            <Popover>
+                            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                               <PopoverTrigger asChild>
                                 <Button variant="outline" size="sm" className="text-xs">
                                   <CalendarIcon className="w-3.5 h-3.5 ml-1.5" />
@@ -114,7 +115,7 @@ export default function TaskList({ tasks, completions, onComplete, onRemoveCompl
                                 </Button>
                               </PopoverTrigger>
                               <PopoverContent className="w-auto p-0">
-                                <Calendar mode="single" selected={selectedDate} onSelect={(d) => d && setSelectedDate(d)} />
+                                <Calendar mode="single" selected={selectedDate} onSelect={(d) => { if (d) { setSelectedDate(d); setCalendarOpen(false); } }} />
                               </PopoverContent>
                             </Popover>
                           </div>

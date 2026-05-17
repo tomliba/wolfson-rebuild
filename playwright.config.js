@@ -5,6 +5,7 @@ dotenv.config({ path: '.env.local' });
 
 export default defineConfig({
   testDir: './tests',
+  testMatch: '**/*.spec.js',
   timeout: 60000,
   expect: { timeout: 10000 },
   fullyParallel: false,

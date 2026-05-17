@@ -1,0 +1,10 @@
+﻿◇ injected env (5) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+◇ injected env (0) from .env.local // tip: ⌘ suppress logs { quiet: true }
+[global-setup] Auth state saved successfully.
+
+Running 1 test using 1 worker
+
+◇ injected env (0) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+  ✓  1 [chromium] › tests\full-suite.spec.js:164:7 › C. Tasks tests › task completion toggle works (11.7s)
+
+  1 passed (15.5s)

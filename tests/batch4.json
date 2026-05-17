@@ -1,0 +1,3 @@
+﻿◇ injected env (5) from .env.local // tip: ⌘ enable debugging { debug: true }
+◇ injected env (0) from .env.local // tip: ◈ secrets for agents [www.dotenvx.com]
+[global-setup] Auth state saved successfully.
