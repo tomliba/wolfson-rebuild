@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { FileText, Users, Stethoscope, Activity, Download, Image } from 'lucide-react';
+import { FileText, Users, Stethoscope, Activity, Download, Image, Loader2 } from 'lucide-react';
+import { downloadPptx, downloadImages } from './charts/exportUtils';
 
 import ResidentCountChart from './charts/ResidentCountChart';
 import MonthlyHeatmap from './charts/MonthlyHeatmap';
@@ -57,6 +58,7 @@ export default function ReportBuilder({ open, onOpenChange, surgeries, residents
   const [selected, setSelected] = useState({ 1: true, 2: true, 3: true, 4: true, 5: true, 6: true });
   const [chartTypes, setChartTypes] = useState({ 1: 'donut', 3: 'bars', 4: 'donut', 5: 'bar' });
   const [showTop3, setShowTop3] = useState({ 1: false, 4: false });
+  const [downloading, setDownloading] = useState(null);
 
   const refs = {
     1: useRef(null), 2: useRef(null), 3: useRef(null),
@@ -68,6 +70,30 @@ export default function ReportBuilder({ open, onOpenChange, surgeries, residents
   const toggleTop3 = (id) => setShowTop3(prev => ({ ...prev, [id]: !prev[id] }));
 
   const selectedCount = Object.values(selected).filter(Boolean).length;
+
+  const handleDownloadImages = async () => {
+    setDownloading('images');
+    try {
+      await downloadImages({ selected, refs });
+    } catch (err) {
+      console.error('Image download failed:', err);
+      alert('שגיאה בהורדת תמונות');
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const handleDownloadPptx = async () => {
+    setDownloading('pptx');
+    try {
+      await downloadPptx({ selected, chartTypes, showTop3, refs, surgeries, residents, selectedMonth, selectedYear });
+    } catch (err) {
+      console.error('PPTX download failed:', err);
+      alert('שגיאה בהורדת מצגת');
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -290,12 +316,12 @@ export default function ReportBuilder({ open, onOpenChange, surgeries, residents
         <div className="sticky bottom-0 z-10 bg-background border-t p-4 flex items-center justify-between">
           <span className="text-sm text-muted-foreground">{selectedCount} תרשימים נבחרו</span>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled className="gap-1.5 text-xs">
-              <Image className="w-3.5 h-3.5" />
+            <Button variant="outline" size="sm" disabled={selectedCount === 0 || downloading !== null} onClick={handleDownloadImages} className="gap-1.5 text-xs">
+              {downloading === 'images' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Image className="w-3.5 h-3.5" />}
               הורד תמונות
             </Button>
-            <Button size="sm" disabled className="gap-1.5 text-xs">
-              <Download className="w-3.5 h-3.5" />
+            <Button size="sm" disabled={selectedCount === 0 || downloading !== null} onClick={handleDownloadPptx} className="gap-1.5 text-xs">
+              {downloading === 'pptx' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
               הורד מצגת
             </Button>
           </div>
