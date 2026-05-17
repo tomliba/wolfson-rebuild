@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell } from "@/components/ui/table";
-import { Users, ClipboardCheck, Scissors, Film, ChevronLeft, Download } from "lucide-react";
+import { Users, ClipboardCheck, Scissors, Film, ChevronLeft, Download, FileText } from "lucide-react";
+import ReportBuilder from '@/components/admin/ReportBuilder';
 import ProgressRing from '@/components/shared/ProgressRing';
 import TaskList from '@/components/tasks/TaskList';
 import SurgeryCard from '@/components/surgery/SurgeryCard';
@@ -28,6 +29,7 @@ export default function AdminPanel() {
   const now = new Date();
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
+  const [reportBuilderOpen, setReportBuilderOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -286,8 +288,19 @@ export default function AdminPanel() {
             <Download className="w-3.5 h-3.5" />
             ייצוא לאקסל
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setReportBuilderOpen(true)} className="h-8 text-xs gap-1.5">
+            <FileText className="w-3.5 h-3.5" />
+            בניית דוח למצגת
+          </Button>
         </div>
       </div>
+
+      <ReportBuilder
+        open={reportBuilderOpen}
+        onOpenChange={setReportBuilderOpen}
+        surgeries={allSurgeries}
+        residents={residents}
+      />
 
       <div className="grid gap-3">
         {residents.map((resident) => {
