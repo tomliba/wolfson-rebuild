@@ -32,7 +32,7 @@ const StageProgressChart = forwardRef(function StageProgressChart({ surgeries, r
 
   if (chartType === 'heatmap') {
     return (
-      <div ref={ref} dir="rtl" className="overflow-x-auto">
+      <div ref={ref} dir="rtl" className="overflow-x-auto" style={{ fontFamily: 'Heebo, sans-serif' }}>
         <table className="w-full text-xs border-collapse" style={{ minWidth: 520 }}>
           <thead>
             <tr>
@@ -63,7 +63,7 @@ const StageProgressChart = forwardRef(function StageProgressChart({ surgeries, r
   }
 
   return (
-    <div ref={ref} dir="rtl" className="space-y-3 p-3">
+    <div ref={ref} dir="rtl" className="space-y-3 p-3" style={{ fontFamily: 'Heebo, sans-serif' }}>
       {data.map(r => (
         <div key={r.name} className="space-y-1">
           <div className="flex items-center justify-between">

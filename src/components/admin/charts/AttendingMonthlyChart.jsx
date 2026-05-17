@@ -1,9 +1,10 @@
 'use client';
 
 import React, { forwardRef } from 'react';
-import { PieChart, Pie, Cell, Legend, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LabelList } from 'recharts';
+import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from 'recharts';
 
 const COLORS = ['#378ADD','#1D9E75','#D85A30','#7F77DD','#D4537E','#BA7517','#639922','#5F5E5A','#85B7EB','#5DCAA5','#F0997B','#AFA9EC','#ED93B1','#97C459'];
+const FONT = 'Heebo, sans-serif';
 
 const AttendingMonthlyChart = forwardRef(function AttendingMonthlyChart({ surgeries, selectedMonth, selectedYear, chartType }, ref) {
   const filtered = surgeries.filter(s => {
@@ -19,6 +20,7 @@ const AttendingMonthlyChart = forwardRef(function AttendingMonthlyChart({ surger
   })).filter(d => d.value > 0).sort((a, b) => b.value - a.value);
 
   const total = data.reduce((s, d) => s + d.value, 0);
+  const maxVal = Math.max(...data.map(d => d.value), 1);
 
   if (data.length === 0) {
     return <div ref={ref} className="flex items-center justify-center h-[200px] text-sm text-muted-foreground">אין נתונים</div>;
@@ -26,18 +28,21 @@ const AttendingMonthlyChart = forwardRef(function AttendingMonthlyChart({ surger
 
   if (chartType === 'bar') {
     return (
-      <div ref={ref} dir="rtl" style={{ width: '100%', height: Math.max(200, data.length * 40 + 40) }}>
-        <ResponsiveContainer>
-          <BarChart data={data} layout="vertical" margin={{ top: 5, right: 40, left: 10, bottom: 5 }}>
-            <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-            <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={90} />
-            <Tooltip contentStyle={{ direction: 'rtl', fontSize: 12 }} />
-            <Bar dataKey="value" name="ניתוחים" radius={[0, 6, 6, 0]} barSize={24}>
-              {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-              <LabelList dataKey="value" position="right" style={{ fontSize: 12, fontWeight: 600 }} />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+      <div ref={ref} dir="rtl" className="space-y-2 p-3" style={{ fontFamily: FONT }}>
+        {data.map((d, i) => (
+          <div key={d.name} className="space-y-0.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium">{d.name}</span>
+              <span className="text-xs font-bold">{d.value}</span>
+            </div>
+            <div className="h-5 rounded-md overflow-hidden bg-muted/40">
+              <div
+                className="h-full rounded-md transition-all"
+                style={{ width: `${(d.value / maxVal) * 100}%`, backgroundColor: COLORS[i % COLORS.length] }}
+              />
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
@@ -49,21 +54,21 @@ const AttendingMonthlyChart = forwardRef(function AttendingMonthlyChart({ surger
           <Pie data={data} cx="50%" cy="45%" innerRadius={45} outerRadius={75} dataKey="value" paddingAngle={2} labelLine={false} label={false}>
             {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
           </Pie>
-          <text x="50%" y="45%" textAnchor="middle" dominantBaseline="central" style={{ fontSize: 22, fontWeight: 700, fill: '#1a1a1a' }}>{total}</text>
-          <text x="50%" y="45%" dy={22} textAnchor="middle" style={{ fontSize: 10, fill: '#888' }}>ניתוחים</text>
+          <text x="50%" y="42%" textAnchor="middle" dominantBaseline="central" style={{ fontSize: 24, fontWeight: 700, fill: '#1a1a1a', fontFamily: FONT }}>{total}</text>
+          <text x="50%" y="52%" textAnchor="middle" style={{ fontSize: 11, fill: '#888', fontFamily: FONT }}>ניתוחים</text>
           <Legend
             layout="horizontal"
             align="center"
             verticalAlign="bottom"
             iconType="circle"
-            iconSize={8}
+            iconSize={10}
             formatter={(value) => {
               const item = data.find(d => d.name === value);
               return `${value} (${item?.value || 0})`;
             }}
-            wrapperStyle={{ fontSize: 11, direction: 'rtl', paddingTop: 4 }}
+            wrapperStyle={{ fontSize: 12, fontFamily: FONT, direction: 'rtl', paddingTop: 4 }}
           />
-          <Tooltip contentStyle={{ direction: 'rtl', fontSize: 12 }} formatter={(v) => [v, 'ניתוחים']} />
+          <Tooltip contentStyle={{ direction: 'rtl', fontSize: 13, fontFamily: FONT }} formatter={(v) => [v, 'ניתוחים']} />
         </PieChart>
       </ResponsiveContainer>
     </div>

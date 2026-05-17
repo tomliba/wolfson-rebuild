@@ -29,7 +29,7 @@ const MonthlyHeatmap = forwardRef(function MonthlyHeatmap({ surgeries, residents
   });
 
   return (
-    <div ref={ref} dir="rtl" className="overflow-x-auto">
+    <div ref={ref} dir="rtl" className="overflow-x-auto" style={{ fontFamily: 'Heebo, sans-serif' }}>
       <table className="w-full text-xs border-collapse" style={{ minWidth: 480 }}>
         <thead>
           <tr>
