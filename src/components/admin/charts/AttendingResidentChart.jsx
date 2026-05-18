@@ -1,129 +1,116 @@
 'use client';
 
-import React, { forwardRef } from 'react';
-import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from 'recharts';
+import React, { forwardRef, useRef, useImperativeHandle, useMemo } from 'react';
+import ReactECharts from 'echarts-for-react';
 
-const COLORS = ['#378ADD','#1D9E75','#D85A30','#7F77DD','#D4537E','#BA7517','#639922','#5F5E5A','#85B7EB','#5DCAA5','#F0997B','#AFA9EC','#ED93B1','#97C459'];
+const GREEN_COLORS = ['#1D9E75','#0F6E56','#5DCAA5','#9FE1CB','#3ba272','#085041','#2AB88A','#16835F'];
 const FONT = 'Heebo, sans-serif';
 
-function cellStyle(count) {
-  if (count === 0) return { backgroundColor: '#f3f4f6', color: '#d1d5db' };
-  if (count <= 3) return { backgroundColor: '#B5D4F4', color: '#1e3a5f' };
-  if (count <= 6) return { backgroundColor: '#378ADD', color: '#ffffff' };
-  return { backgroundColor: '#185FA5', color: '#ffffff' };
-}
-
 const AttendingResidentChart = forwardRef(function AttendingResidentChart({ surgeries, residents, selectedMonth, selectedYear, chartType, showTop3 }, ref) {
-  const filtered = surgeries.filter(s => {
+  const chartRef = useRef(null);
+
+  useImperativeHandle(ref, () => ({
+    getDataURL: () => chartRef.current?.getEchartsInstance()?.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#fff' }),
+  }));
+
+  const filtered = useMemo(() => surgeries.filter(s => {
     if (!s.surgery_date) return false;
     const d = new Date(s.surgery_date);
     return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
-  });
+  }), [surgeries, selectedMonth, selectedYear]);
 
-  const supervisors = [...new Set(filtered.map(s => s.supervising_surgeon).filter(Boolean))];
-  let donutData = supervisors.map(sup => ({
-    name: sup,
-    value: filtered.filter(s => s.supervising_surgeon === sup).length,
-  })).filter(d => d.value > 0).sort((a, b) => b.value - a.value);
+  const supervisors = useMemo(() => [...new Set(filtered.map(s => s.supervising_surgeon).filter(Boolean))], [filtered]);
 
-  if (showTop3 && donutData.length > 3) {
-    const top3 = donutData.slice(0, 3);
-    const rest = donutData.slice(3).reduce((sum, d) => sum + d.value, 0);
-    donutData = [...top3, { name: 'אחרים', value: rest }];
-  }
+  const donutData = useMemo(() => {
+    let d = supervisors.map(sup => ({
+      name: sup,
+      value: filtered.filter(s => s.supervising_surgeon === sup).length,
+    })).filter(d => d.value > 0).sort((a, b) => b.value - a.value);
+
+    if (showTop3 && d.length > 3) {
+      const top3 = d.slice(0, 3);
+      const rest = d.slice(3).reduce((sum, i) => sum + i.value, 0);
+      d = [...top3, { name: 'אחרים', value: rest }];
+    }
+    return d;
+  }, [supervisors, filtered, showTop3]);
 
   const total = donutData.reduce((s, d) => s + d.value, 0);
-  const maxVal = Math.max(...donutData.map(d => d.value), 1);
 
-  if (donutData.length === 0) {
-    return <div ref={ref} className="flex items-center justify-center h-[200px] text-sm text-muted-foreground">אין נתונים</div>;
+  if (donutData.length === 0 && chartType !== 'heatmap') {
+    return <div className="flex items-center justify-center h-[280px] text-sm text-muted-foreground">אין נתונים</div>;
   }
 
   if (chartType === 'heatmap') {
     const sortedSups = [...supervisors].sort();
-    return (
-      <div ref={ref} dir="rtl" className="overflow-x-auto" style={{ fontFamily: FONT }}>
-        <table className="w-full text-xs border-collapse" style={{ minWidth: 400 }}>
-          <thead>
-            <tr>
-              <th className="p-2 text-right font-semibold bg-muted/60 border border-border/50 whitespace-nowrap">מנתח מפקח</th>
-              {residents.map(r => (
-                <th key={r.email} className="p-1 text-center font-medium bg-muted/60 border border-border/50 text-[10px]">{r.full_name || r.email}</th>
-              ))}
-              <th className="p-1.5 text-center font-bold bg-muted/60 border border-border/50">סה"כ</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedSups.map(sup => {
-              const rowTotal = filtered.filter(s => s.supervising_surgeon === sup).length;
-              return (
-                <tr key={sup}>
-                  <td className="p-2 text-right font-medium border border-border/50 whitespace-nowrap">{sup}</td>
-                  {residents.map(r => {
-                    const count = filtered.filter(s => s.supervising_surgeon === sup && s.resident_email === r.email).length;
-                    return (
-                      <td key={r.email} className="p-1.5 text-center border border-border/50 font-bold" style={cellStyle(count)}>
-                        {count || ''}
-                      </td>
-                    );
-                  })}
-                  <td className="p-1.5 text-center font-bold border border-border/50 bg-muted/40">{rowTotal}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    );
+    const residentNames = residents.map(r => r.full_name || r.email);
+    const heatData = [];
+    let maxVal = 0;
+    sortedSups.forEach((sup, yIdx) => {
+      residents.forEach((r, xIdx) => {
+        const count = filtered.filter(s => s.supervising_surgeon === sup && s.resident_email === r.email).length;
+        heatData.push([xIdx, yIdx, count]);
+        if (count > maxVal) maxVal = count;
+      });
+    });
+
+    if (sortedSups.length === 0) {
+      return <div className="flex items-center justify-center h-[280px] text-sm text-muted-foreground">אין נתונים</div>;
+    }
+
+    const option = {
+      textStyle: { fontFamily: FONT },
+      tooltip: { position: 'top', textStyle: { fontFamily: FONT }, formatter: (p) => `${sortedSups[p.value[1]]} | ${residentNames[p.value[0]]}: ${p.value[2]}` },
+      grid: { top: 50, right: 10, bottom: 50, left: 10, containLabel: true },
+      xAxis: { type: 'category', data: residentNames, position: 'top', axisLabel: { fontSize: 10, fontFamily: FONT, rotate: 30 }, axisTick: { show: false }, axisLine: { show: false }, splitArea: { show: true } },
+      yAxis: { type: 'category', data: sortedSups, axisLabel: { fontSize: 11, fontFamily: FONT }, axisTick: { show: false }, axisLine: { show: false }, splitArea: { show: true } },
+      visualMap: { min: 0, max: Math.max(maxVal, 1), calculable: false, orient: 'horizontal', left: 'center', bottom: 4, inRange: { color: ['#f0f8f4', '#9FE1CB', '#1D9E75', '#085041'] }, textStyle: { fontFamily: FONT, fontSize: 10 }, itemWidth: 12, itemHeight: 80 },
+      series: [{ type: 'heatmap', data: heatData, label: { show: true, fontSize: 11, fontWeight: 600, fontFamily: FONT, formatter: (p) => p.value[2] > 0 ? String(p.value[2]) : '' }, itemStyle: { borderColor: '#fff', borderWidth: 2, borderRadius: 3 } }],
+      animationDuration: 600,
+    };
+
+    return <ReactECharts ref={chartRef} option={option} style={{ height: Math.max(280, sortedSups.length * 36 + 100), width: '100%' }} opts={{ renderer: 'canvas' }} />;
   }
 
   if (chartType === 'bar') {
-    return (
-      <div ref={ref} dir="rtl" className="space-y-2 p-3" style={{ fontFamily: FONT }}>
-        {donutData.map((d, i) => (
-          <div key={d.name} className="space-y-0.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium">{d.name}</span>
-              <span className="text-xs font-bold">{d.value}</span>
-            </div>
-            <div className="h-5 rounded-md overflow-hidden bg-muted/40">
-              <div
-                className="h-full rounded-md transition-all"
-                style={{ width: `${(d.value / maxVal) * 100}%`, backgroundColor: COLORS[i % COLORS.length] }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
+    const option = {
+      textStyle: { fontFamily: FONT },
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, textStyle: { fontFamily: FONT } },
+      grid: { top: 10, right: 40, bottom: 10, left: 10, containLabel: true },
+      xAxis: { type: 'value', show: false },
+      yAxis: { type: 'category', data: [...donutData].reverse().map(d => d.name), axisLabel: { fontSize: 12, fontFamily: FONT }, axisTick: { show: false }, axisLine: { show: false } },
+      series: [{
+        type: 'bar',
+        data: [...donutData].reverse().map((d, i) => ({ value: d.value, itemStyle: { color: GREEN_COLORS[(donutData.length - 1 - i) % GREEN_COLORS.length], borderRadius: [0, 6, 6, 0] } })),
+        barWidth: 22,
+        label: { show: true, position: 'right', fontSize: 13, fontWeight: 600, fontFamily: FONT },
+      }],
+      animationDuration: 600,
+    };
+    return <ReactECharts ref={chartRef} option={option} style={{ height: Math.max(250, donutData.length * 44), width: '100%' }} opts={{ renderer: 'canvas' }} />;
   }
 
-  return (
-    <div ref={ref} dir="rtl" style={{ width: '100%', height: 280 }}>
-      <ResponsiveContainer>
-        <PieChart>
-          <Pie data={donutData} cx="50%" cy="45%" innerRadius={45} outerRadius={75} dataKey="value" paddingAngle={2} labelLine={false} label={false}>
-            {donutData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-          </Pie>
-          <text x="50%" y="42%" textAnchor="middle" dominantBaseline="central" style={{ fontSize: 24, fontWeight: 700, fill: '#1a1a1a', fontFamily: FONT }}>{total}</text>
-          <text x="50%" y="52%" textAnchor="middle" style={{ fontSize: 11, fill: '#888', fontFamily: FONT }}>ניתוחים</text>
-          <Legend
-            layout="horizontal"
-            align="center"
-            verticalAlign="bottom"
-            iconType="circle"
-            iconSize={10}
-            formatter={(value) => {
-              const item = donutData.find(d => d.name === value);
-              return `${value} (${item?.value || 0})`;
-            }}
-            wrapperStyle={{ fontSize: 12, fontFamily: FONT, direction: 'rtl', paddingTop: 4 }}
-          />
-          <Tooltip contentStyle={{ direction: 'rtl', fontSize: 13, fontFamily: FONT }} formatter={(v) => [v, 'ניתוחים']} />
-        </PieChart>
-      </ResponsiveContainer>
-    </div>
-  );
+  const option = {
+    textStyle: { fontFamily: FONT },
+    tooltip: { trigger: 'item', textStyle: { fontFamily: FONT }, formatter: '{b}: {c} ({d}%)' },
+    legend: { bottom: 0, type: 'scroll', textStyle: { fontSize: 11, fontFamily: FONT }, icon: 'circle', itemWidth: 10, itemHeight: 10 },
+    graphic: [
+      { type: 'text', left: 'center', top: '38%', style: { text: String(total), fontSize: 26, fontWeight: 700, fontFamily: FONT, fill: '#1a1a1a', textAlign: 'center' } },
+      { type: 'text', left: 'center', top: '50%', style: { text: 'ניתוחים', fontSize: 11, fontFamily: FONT, fill: '#999', textAlign: 'center' } },
+    ],
+    series: [{
+      type: 'pie',
+      radius: ['40%', '68%'],
+      center: ['50%', '45%'],
+      avoidLabelOverlap: true,
+      padAngle: 2,
+      label: { show: false },
+      data: donutData.map((d, i) => ({ name: d.name, value: d.value, itemStyle: { color: GREEN_COLORS[i % GREEN_COLORS.length] } })),
+    }],
+    animationDuration: 600,
+  };
+
+  return <ReactECharts ref={chartRef} option={option} style={{ height: 300, width: '100%' }} opts={{ renderer: 'canvas' }} />;
 });
 
 export default AttendingResidentChart;

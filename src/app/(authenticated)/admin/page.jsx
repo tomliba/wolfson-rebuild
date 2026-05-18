@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { entities, auth } from '@/lib/api';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell } from "@/components/ui/table";
-import { Users, ClipboardCheck, Scissors, Film, ChevronLeft, Download, FileText } from "lucide-react";
+import { Users, ClipboardCheck, Scissors, Film, ChevronLeft, Download, FileText, Eye, EyeOff, Trash2 } from "lucide-react";
 import ReportBuilder from '@/components/admin/ReportBuilder';
 import ProgressRing from '@/components/shared/ProgressRing';
 import TaskList from '@/components/tasks/TaskList';
@@ -30,7 +30,11 @@ export default function AdminPanel() {
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const [reportBuilderOpen, setReportBuilderOpen] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     auth.me().then((u) => {
@@ -78,7 +82,47 @@ export default function AdminPanel() {
     );
   }
 
-  const residents = users.filter(u => u.role !== 'admin');
+  const allResidents = users.filter(u => u.role !== 'admin');
+  const activeResidents = allResidents.filter(u => u.active !== false);
+  const hiddenResidents = allResidents.filter(u => u.active === false);
+  const residents = activeResidents;
+  const displayResidents = showHidden ? [...activeResidents, ...hiddenResidents] : activeResidents;
+
+  const toggleResidentActive = async (resident, e) => {
+    e.stopPropagation();
+    const newActive = resident.active === false ? true : false;
+    await entities.User.update(resident.id, { active: newActive });
+    queryClient.invalidateQueries({ queryKey: ['users'] });
+  };
+
+  const handlePermanentDelete = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch('/api/admin/delete-resident', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          residentId: selectedResident.id,
+          residentEmail: selectedResident.email,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        queryClient.invalidateQueries({ queryKey: ['users'] });
+        queryClient.invalidateQueries({ queryKey: ['surgeries'] });
+        queryClient.invalidateQueries({ queryKey: ['completions'] });
+        queryClient.invalidateQueries({ queryKey: ['videos'] });
+        setSelectedResident(null);
+        setShowDeleteConfirm(false);
+      } else {
+        alert('שגיאה במחיקה: ' + JSON.stringify(data.results));
+      }
+    } catch (err) {
+      alert('שגיאה: ' + err.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const getResidentData = (email) => {
     const completions = allCompletions.filter(c => c.resident_email === email);
@@ -165,6 +209,43 @@ export default function AdminPanel() {
             </div>
           </div>
         )}
+
+        <div className="border-t pt-6 mt-6">
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            מחיקה לצמיתות
+          </button>
+        </div>
+
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowDeleteConfirm(false)}>
+            <Card className="p-6 max-w-sm mx-4 space-y-4" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-base font-semibold text-foreground">מחיקה לצמיתות</h3>
+              <p className="text-sm text-muted-foreground">
+                פעולה זו תמחק את המתמחה וכל הנתונים שלו לצמיתות. האם להמשיך?
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="px-4 py-2 text-sm rounded-md bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
+                  disabled={deleting}
+                >
+                  ביטול
+                </button>
+                <button
+                  onClick={handlePermanentDelete}
+                  disabled={deleting}
+                  className="px-4 py-2 text-sm rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  {deleting ? 'מוחק...' : 'מחק'}
+                </button>
+              </div>
+            </Card>
+          </div>
+        )}
       </div>
     );
   }
@@ -217,6 +298,7 @@ export default function AdminPanel() {
 
   // Excel export
   const exportAdminExcel = () => {
+    // Sheet 1: Surgery count summary by month per resident
     const sheet1Data = surgerySummaryData.map(r => {
       const row = { 'מתמחה': r.name };
       MONTHS_HE.forEach((m, i) => { row[m] = r.monthly[i]; });
@@ -228,6 +310,7 @@ export default function AdminPanel() {
     totalsRow['סה"כ'] = grandTotal;
     sheet1Data.push(totalsRow);
 
+    // Sheet 2: Surgeries by supervising surgeon
     const sheet2Data = [];
     supervisors.forEach(sup => {
       const row = { 'מנתח מפקח': sup };
@@ -238,17 +321,62 @@ export default function AdminPanel() {
       sheet2Data.push(row);
     });
 
+    // Sheet 3: Step progression
     const sheet3Data = stepProgressionData.map(r => {
       const row = { 'מתמחה': r.name };
       SURGERY_STEPS.forEach(step => { row[step.label] = r.stepCounts[step.id]; });
       return row;
     });
 
+    // Sheet 4: All surgeries detail for all residents
+    const residentNameMap = {};
+    residents.forEach(r => { residentNameMap[r.email] = r.full_name || r.email; });
+    const sheet4Data = allSurgeries
+      .filter(s => residentNameMap[s.resident_email])
+      .map(s => ({
+        'מתמחה': residentNameMap[s.resident_email],
+        'תאריך': s.surgery_date || '',
+        'סוג': s.surgery_type === 'phacolaser' ? 'פאקולייזר' : 'פאקו',
+        'עין': s.eye === 'right' ? 'ימין' : s.eye === 'left' ? 'שמאל' : '',
+        'מנתח מפקח': s.supervising_surgeon || '',
+        'שלבים': (s.steps_performed || []).join(', '),
+        'סיבוכים': s.complications || '',
+        'הערות': s.notes || '',
+      }));
+
+    // Sheet 5: All video reviews for all residents
+    const sheet5Data = allVideos
+      .filter(v => residentNameMap[v.resident_email])
+      .map(v => ({
+        'מתמחה': residentNameMap[v.resident_email],
+        'תאריך': v.review_date || '',
+        'רופא בכיר': v.senior_doctor || '',
+        'תיאור': v.video_description || '',
+        'משוב': v.feedback || '',
+        'הוצג בישיבת שמיים': v.presented_in_meeting ? 'כן' : 'לא',
+        'תאריך ישיבה': v.meeting_date || '',
+        'הערות': v.notes || '',
+      }));
+
+    // Sheet 6: Task completions for all residents
+    const taskNameMap = {};
+    tasks.forEach(t => { taskNameMap[t.id] = t.title; });
+    const sheet6Data = allCompletions
+      .filter(c => residentNameMap[c.resident_email])
+      .map(c => ({
+        'מתמחה': residentNameMap[c.resident_email],
+        'מטלה': taskNameMap[c.task_id] || c.task_id,
+        'תאריך השלמה': c.completed_at || c.created_at || '',
+      }));
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheet1Data), 'סיכום ניתוחים');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheet2Data), 'לפי מנתח מפקח');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheet3Data), 'התקדמות שלבים');
-    XLSX.writeFile(wb, `דוח_ניתוחים_${MONTHS_HE_FULL[selectedMonth]}_${selectedYear}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheet4Data), 'כל הניתוחים');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheet5Data), 'סרטי ניתוחים');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheet6Data), 'מטלות');
+    XLSX.writeFile(wb, `דוח_מתמחים_${MONTHS_HE_FULL[selectedMonth]}_${selectedYear}.xlsx`);
   };
 
   return (
@@ -260,7 +388,7 @@ export default function AdminPanel() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-foreground">פאנל ניהול</h1>
-            <p className="text-xs text-muted-foreground">{residents.length} מתמחים רשומים</p>
+            <p className="text-xs text-muted-foreground">{activeResidents.length} מתמחים פעילים{hiddenResidents.length > 0 ? ` | ${hiddenResidents.length} מוסתרים` : ''}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -292,6 +420,12 @@ export default function AdminPanel() {
             <FileText className="w-3.5 h-3.5" />
             בניית דוח למצגת
           </Button>
+          {hiddenResidents.length > 0 && (
+            <Button variant={showHidden ? "secondary" : "ghost"} size="sm" onClick={() => setShowHidden(!showHidden)} className="h-8 text-xs gap-1.5">
+              {showHidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+              {showHidden ? 'הסתר מוסתרים' : 'הצג מתמחים מוסתרים'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -303,20 +437,21 @@ export default function AdminPanel() {
       />
 
       <div className="grid gap-3">
-        {residents.map((resident) => {
+        {displayResidents.map((resident) => {
+          const isHidden = resident.active === false;
           const data = getResidentData(resident.email);
           return (
             <Card
               key={resident.id}
-              className="p-4 cursor-pointer hover:shadow-md transition-all hover:border-primary/20"
+              className={`p-4 cursor-pointer transition-all ${isHidden ? 'opacity-50 border-dashed' : 'hover:shadow-md hover:border-primary/20'}`}
               onClick={() => setSelectedResident(resident)}
             >
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold shrink-0 ${isHidden ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary'}`}>
                   {resident.full_name?.[0] || resident.email[0]}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-sm text-foreground">{resident.full_name || resident.email}</h3>
+                  <h3 className={`font-semibold text-sm ${isHidden ? 'text-muted-foreground' : 'text-foreground'}`}>{resident.full_name || resident.email}</h3>
                   <p className="text-xs text-muted-foreground">{resident.email}</p>
                 </div>
                 <div className="flex items-center gap-4 shrink-0">
@@ -332,13 +467,20 @@ export default function AdminPanel() {
                     <p className="text-xs text-muted-foreground">סרטים</p>
                     <p className="font-bold text-sm">{data.videos.length}</p>
                   </div>
+                  <button
+                    onClick={(e) => toggleResidentActive(resident, e)}
+                    className={`p-1.5 rounded-md transition-colors ${isHidden ? 'hover:bg-primary/10 text-muted-foreground hover:text-primary' : 'hover:bg-destructive/10 text-muted-foreground hover:text-destructive'}`}
+                    title={isHidden ? 'הצג מתמחה' : 'הסתר מתמחה'}
+                  >
+                    {isHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                   <ChevronLeft className="w-4 h-4 text-muted-foreground" />
                 </div>
               </div>
             </Card>
           );
         })}
-        {residents.length === 0 && (
+        {activeResidents.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
             <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
             <p className="text-sm">אין מתמחים רשומים עדיין</p>

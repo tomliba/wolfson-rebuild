@@ -1,14 +1,10 @@
 'use client';
 
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useRef, useImperativeHandle, useMemo } from 'react';
+import ReactECharts from 'echarts-for-react';
 import { SURGERY_STEPS } from '@/components/shared/SurgerySteps';
 
-function cellStyle(count) {
-  if (count === 0) return { backgroundColor: '#f3f4f6', color: '#d1d5db' };
-  if (count <= 3) return { backgroundColor: '#B5D4F4', color: '#1e3a5f' };
-  if (count <= 6) return { backgroundColor: '#378ADD', color: '#ffffff' };
-  return { backgroundColor: '#185FA5', color: '#ffffff' };
-}
+const FONT = 'Heebo, sans-serif';
 
 function barColor(count) {
   if (count === 0) return '#e5e7eb';
@@ -18,7 +14,18 @@ function barColor(count) {
 }
 
 const StageProgressChart = forwardRef(function StageProgressChart({ surgeries, residents, chartType }, ref) {
-  const data = residents.map(r => {
+  const chartRef = useRef(null);
+  const htmlRef = useRef(null);
+
+  useImperativeHandle(ref, () => ({
+    getDataURL: () => chartType === 'heatmap'
+      ? chartRef.current?.getEchartsInstance()?.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#fff' })
+      : null,
+    isHTML: chartType !== 'heatmap',
+    el: htmlRef.current,
+  }));
+
+  const data = useMemo(() => residents.map(r => {
     const residentSurgeries = surgeries.filter(s => s.resident_email === r.email);
     const stepCounts = {};
     let doneCount = 0;
@@ -28,42 +35,37 @@ const StageProgressChart = forwardRef(function StageProgressChart({ surgeries, r
       if (count > 0) doneCount++;
     });
     return { name: r.full_name || r.email, stepCounts, doneCount };
-  });
+  }), [surgeries, residents]);
 
   if (chartType === 'heatmap') {
-    return (
-      <div ref={ref} dir="rtl" className="overflow-x-auto" style={{ fontFamily: 'Heebo, sans-serif' }}>
-        <table className="w-full text-xs border-collapse" style={{ minWidth: 520 }}>
-          <thead>
-            <tr>
-              <th className="p-2 text-right font-semibold bg-muted/60 border border-border/50 whitespace-nowrap">מתמחה</th>
-              {SURGERY_STEPS.map(step => (
-                <th key={step.id} className="p-1 text-center font-medium bg-muted/60 border border-border/50 text-[10px] leading-tight" style={{ minWidth: 48 }}>{step.label}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.map(r => (
-              <tr key={r.name}>
-                <td className="p-2 text-right font-medium border border-border/50 whitespace-nowrap">{r.name}</td>
-                {SURGERY_STEPS.map(step => {
-                  const count = r.stepCounts[step.id];
-                  return (
-                    <td key={step.id} className="p-1.5 text-center border border-border/50 font-bold" style={cellStyle(count)}>
-                      {count || ''}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
+    const names = data.map(r => r.name);
+    const stepLabels = SURGERY_STEPS.map(s => s.label);
+    const heatData = [];
+    let maxVal = 0;
+    data.forEach((r, yIdx) => {
+      SURGERY_STEPS.forEach((step, xIdx) => {
+        const count = r.stepCounts[step.id];
+        heatData.push([xIdx, yIdx, count]);
+        if (count > maxVal) maxVal = count;
+      });
+    });
+
+    const option = {
+      textStyle: { fontFamily: FONT },
+      tooltip: { position: 'top', textStyle: { fontFamily: FONT }, formatter: (p) => `${names[p.value[1]]} | ${stepLabels[p.value[0]]}: ${p.value[2]}` },
+      grid: { top: 50, right: 10, bottom: 50, left: 10, containLabel: true },
+      xAxis: { type: 'category', data: stepLabels, position: 'top', axisLabel: { fontSize: 9, fontFamily: FONT, rotate: 30 }, axisTick: { show: false }, axisLine: { show: false }, splitArea: { show: true } },
+      yAxis: { type: 'category', data: names, axisLabel: { fontSize: 11, fontFamily: FONT }, axisTick: { show: false }, axisLine: { show: false }, splitArea: { show: true } },
+      visualMap: { min: 0, max: Math.max(maxVal, 1), calculable: false, orient: 'horizontal', left: 'center', bottom: 4, inRange: { color: ['#f0f4f8', '#B5D4F4', '#378ADD', '#185FA5'] }, textStyle: { fontFamily: FONT, fontSize: 10 }, itemWidth: 12, itemHeight: 80 },
+      series: [{ type: 'heatmap', data: heatData, label: { show: true, fontSize: 10, fontWeight: 600, fontFamily: FONT, formatter: (p) => p.value[2] > 0 ? String(p.value[2]) : '' }, itemStyle: { borderColor: '#fff', borderWidth: 2, borderRadius: 3 } }],
+      animationDuration: 600,
+    };
+
+    return <ReactECharts ref={chartRef} option={option} style={{ height: Math.max(300, data.length * 36 + 100), width: '100%' }} opts={{ renderer: 'canvas' }} />;
   }
 
   return (
-    <div ref={ref} dir="rtl" className="space-y-3 p-3" style={{ fontFamily: 'Heebo, sans-serif' }}>
+    <div ref={htmlRef} dir="rtl" className="space-y-3 p-3" style={{ fontFamily: FONT }}>
       {data.map(r => (
         <div key={r.name} className="space-y-1">
           <div className="flex items-center justify-between">
@@ -74,12 +76,7 @@ const StageProgressChart = forwardRef(function StageProgressChart({ surgeries, r
             {SURGERY_STEPS.map(step => {
               const count = r.stepCounts[step.id];
               return (
-                <div
-                  key={step.id}
-                  className="flex-1 flex items-center justify-center text-[9px] font-bold transition-colors"
-                  style={{ backgroundColor: barColor(count), color: count > 3 ? '#fff' : count > 0 ? '#1e3a5f' : '#bbb' }}
-                  title={`${step.label}: ${count}`}
-                >
+                <div key={step.id} className="flex-1 flex items-center justify-center text-[9px] font-bold transition-colors" style={{ backgroundColor: barColor(count), color: count > 3 ? '#fff' : count > 0 ? '#1e3a5f' : '#bbb' }} title={`${step.label}: ${count}`}>
                   {count > 0 ? count : ''}
                 </div>
               );

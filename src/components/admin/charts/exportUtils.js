@@ -6,7 +6,8 @@ import { SURGERY_STEPS } from '@/components/shared/SurgerySteps';
 
 const MONTHS_HE_FULL = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
 const MONTHS_HE = ['ינו','פבר','מרץ','אפר','מאי','יונ','יול','אוג','ספט','אוק','נוב','דצמ'];
-const COLORS = ['#378ADD','#1D9E75','#D85A30','#7F77DD','#D4537E','#BA7517','#639922','#5F5E5A','#85B7EB','#5DCAA5','#F0997B','#AFA9EC','#ED93B1','#97C459'];
+const COLORS = ['#5470c6','#91cc75','#fac858','#ee6666','#73c0de','#3ba272','#fc8452','#9a60b4','#ea7ccc','#5c7bd9','#6dce89','#f7b74a','#ef8181','#8fd4e8'];
+const GREEN_COLORS = ['#1D9E75','#0F6E56','#5DCAA5','#9FE1CB','#3ba272','#085041'];
 const COMP_COLORS = ['#1D9E75', '#E24B4A'];
 
 function cellColorHex(count) {
@@ -53,7 +54,6 @@ function computeChartData(cardId, { surgeries, residents, selectedMonth, selecte
       name: r.full_name || r.email,
       value: filtered.filter(s => s.resident_email === r.email).length,
     })).sort((a, b) => b.value - a.value);
-
     if (showTop3[1] && data.length > 3) {
       const top3 = data.slice(0, 3);
       const rest = data.slice(3).reduce((sum, d) => sum + d.value, 0);
@@ -63,34 +63,20 @@ function computeChartData(cardId, { surgeries, residents, selectedMonth, selecte
   }
 
   if (cardId === 2) {
-    const sortedResidents = [...residents].sort((a, b) =>
-      (a.full_name || a.email).localeCompare(b.full_name || b.email, 'he')
-    );
+    const sortedResidents = [...residents].sort((a, b) => (a.full_name || a.email).localeCompare(b.full_name || b.email, 'he'));
     const rows = sortedResidents.map(r => {
-      const monthly = MONTHS_HE.map((_, i) => {
-        return surgeries.filter(s => {
-          if (s.resident_email !== r.email || !s.surgery_date) return false;
-          const d = new Date(s.surgery_date);
-          return d.getMonth() === i && d.getFullYear() === selectedYear;
-        }).length;
-      });
-      const total = monthly.reduce((a, b) => a + b, 0);
-      return { name: r.full_name || r.email, monthly, total };
+      const monthly = MONTHS_HE.map((_, i) => surgeries.filter(s => { if (s.resident_email !== r.email || !s.surgery_date) return false; const d = new Date(s.surgery_date); return d.getMonth() === i && d.getFullYear() === selectedYear; }).length);
+      return { name: r.full_name || r.email, monthly, total: monthly.reduce((a, b) => a + b, 0) };
     });
     return { type: 'heatmap', rows, headers: MONTHS_HE };
   }
 
   if (cardId === 3) {
     const data = residents.map(r => {
-      const residentSurgeries = surgeries.filter(s => s.resident_email === r.email);
+      const rs = surgeries.filter(s => s.resident_email === r.email);
       const stepCounts = {};
-      let doneCount = 0;
-      SURGERY_STEPS.forEach(step => {
-        const count = residentSurgeries.filter(s => s.steps_performed?.includes(step.id)).length;
-        stepCounts[step.id] = count;
-        if (count > 0) doneCount++;
-      });
-      return { name: r.full_name || r.email, stepCounts, doneCount };
+      SURGERY_STEPS.forEach(step => { stepCounts[step.id] = rs.filter(s => s.steps_performed?.includes(step.id)).length; });
+      return { name: r.full_name || r.email, stepCounts };
     });
     return { type: chartTypes[3] === 'heatmap' ? 'heatmap_steps' : 'bars_steps', data };
   }
@@ -98,21 +84,16 @@ function computeChartData(cardId, { surgeries, residents, selectedMonth, selecte
   if (cardId === 4) {
     const filtered = surgeries.filter(filterByMonth);
     const supervisors = [...new Set(filtered.map(s => s.supervising_surgeon).filter(Boolean))];
-    let donutData = supervisors.map(sup => ({
-      name: sup,
-      value: filtered.filter(s => s.supervising_surgeon === sup).length,
-    })).sort((a, b) => b.value - a.value);
-
     if (chartTypes[4] === 'heatmap') {
       const sortedSups = [...supervisors].sort();
-      const rows = sortedSups.map(sup => {
-        const cells = residents.map(r => filtered.filter(s => s.supervising_surgeon === sup && s.resident_email === r.email).length);
-        const total = filtered.filter(s => s.supervising_surgeon === sup).length;
-        return { name: sup, cells, total };
-      });
+      const rows = sortedSups.map(sup => ({
+        name: sup,
+        cells: residents.map(r => filtered.filter(s => s.supervising_surgeon === sup && s.resident_email === r.email).length),
+        total: filtered.filter(s => s.supervising_surgeon === sup).length,
+      }));
       return { type: 'heatmap_attending', rows, residentNames: residents.map(r => r.full_name || r.email) };
     }
-
+    let donutData = supervisors.map(sup => ({ name: sup, value: filtered.filter(s => s.supervising_surgeon === sup).length })).sort((a, b) => b.value - a.value);
     if (showTop3[4] && donutData.length > 3) {
       const top3 = donutData.slice(0, 3);
       const rest = donutData.slice(3).reduce((sum, d) => sum + d.value, 0);
@@ -124,50 +105,38 @@ function computeChartData(cardId, { surgeries, residents, selectedMonth, selecte
   if (cardId === 5) {
     const filtered = surgeries.filter(filterByMonth);
     const supervisors = [...new Set(filtered.map(s => s.supervising_surgeon).filter(Boolean))];
-    const data = supervisors.map(sup => ({
-      name: sup,
-      value: filtered.filter(s => s.supervising_surgeon === sup).length,
-    })).sort((a, b) => b.value - a.value);
+    const data = supervisors.map(sup => ({ name: sup, value: filtered.filter(s => s.supervising_surgeon === sup).length })).sort((a, b) => b.value - a.value);
     return { type: chartTypes[5] || 'bar', data };
   }
 
   if (cardId === 6) {
     const filtered = surgeries.filter(filterByMonth);
     const withComps = filtered.filter(s => s.complications && s.complications.length > 0).length;
-    const withoutComps = filtered.length - withComps;
-    return {
-      type: 'donut',
-      data: [
-        { name: 'ללא סיבוכים', value: withoutComps },
-        { name: 'עם סיבוכים', value: withComps },
-      ],
-      colors: COMP_COLORS,
-    };
+    return { type: 'donut', data: [{ name: 'ללא סיבוכים', value: filtered.length - withComps }, { name: 'עם סיבוכים', value: withComps }], colors: COMP_COLORS };
   }
 }
 
-async function captureRefAsBase64(ref) {
-  if (!ref?.current) return null;
+async function getRefImage(ref) {
+  const refObj = ref?.current;
+  if (!refObj) return null;
+
+  if (refObj.getDataURL) {
+    const url = refObj.getDataURL();
+    if (url) return url;
+  }
+
+  const el = refObj.isHTML ? refObj.el : ref.current;
+  if (!el) return null;
   const html2canvas = (await import('html2canvas')).default;
-  const canvas = await html2canvas(ref.current, {
-    backgroundColor: '#ffffff',
-    scale: 2,
-    useCORS: true,
-    logging: false,
-  });
+  const canvas = await html2canvas(el, { backgroundColor: '#ffffff', scale: 2, useCORS: true, logging: false });
   return canvas.toDataURL('image/png');
 }
 
-async function captureRefAsBlob(ref) {
-  if (!ref?.current) return null;
-  const html2canvas = (await import('html2canvas')).default;
-  const canvas = await html2canvas(ref.current, {
-    backgroundColor: '#ffffff',
-    scale: 2,
-    useCORS: true,
-    logging: false,
-  });
-  return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+async function getRefBlob(ref) {
+  const base64 = await getRefImage(ref);
+  if (!base64) return null;
+  const res = await fetch(base64);
+  return res.blob();
 }
 
 function addPptxTable(slide, cardId, computed, subtitle) {
@@ -178,46 +147,27 @@ function addPptxTable(slide, cardId, computed, subtitle) {
     const headerRow = [{ text: 'מתמחה', options: { bold: true, fontSize: 8, align: 'right', fill: 'F0F0F0' } }];
     computed.headers.forEach(h => headerRow.push({ text: h, options: { bold: true, fontSize: 7, align: 'center', fill: 'F0F0F0' } }));
     headerRow.push({ text: 'סה"כ', options: { bold: true, fontSize: 8, align: 'center', fill: 'F0F0F0' } });
-
     const tableRows = [headerRow];
     computed.rows.forEach(r => {
       const row = [{ text: r.name, options: { fontSize: 8, align: 'right' } }];
-      r.monthly.forEach(count => {
-        row.push({ text: String(count), options: { fontSize: 8, align: 'center', bold: true, fill: cellColorHex(count), color: cellTextColor(count) } });
-      });
+      r.monthly.forEach(count => row.push({ text: String(count), options: { fontSize: 8, align: 'center', bold: true, fill: cellColorHex(count), color: cellTextColor(count) } }));
       row.push({ text: String(r.total), options: { fontSize: 8, align: 'center', bold: true, fill: 'F0F0F0' } });
       tableRows.push(row);
     });
-
-    slide.addTable(tableRows, {
-      x: 0.3, y: 1.1, w: 9.4,
-      border: { pt: 0.5, color: 'CCCCCC' },
-      fontFace: 'Arial',
-      rowH: 0.3,
-    });
+    slide.addTable(tableRows, { x: 0.3, y: 1.1, w: 9.4, border: { pt: 0.5, color: 'CCCCCC' }, fontFace: 'Arial', rowH: 0.3 });
     return;
   }
 
   if (computed.type === 'heatmap_steps') {
     const headerRow = [{ text: 'מתמחה', options: { bold: true, fontSize: 7, align: 'right', fill: 'F0F0F0' } }];
     SURGERY_STEPS.forEach(step => headerRow.push({ text: step.label, options: { bold: true, fontSize: 6, align: 'center', fill: 'F0F0F0' } }));
-
     const tableRows = [headerRow];
     computed.data.forEach(r => {
       const row = [{ text: r.name, options: { fontSize: 7, align: 'right' } }];
-      SURGERY_STEPS.forEach(step => {
-        const count = r.stepCounts[step.id];
-        row.push({ text: String(count), options: { fontSize: 7, align: 'center', bold: true, fill: cellColorHex(count), color: cellTextColor(count) } });
-      });
+      SURGERY_STEPS.forEach(step => { const c = r.stepCounts[step.id]; row.push({ text: String(c), options: { fontSize: 7, align: 'center', bold: true, fill: cellColorHex(c), color: cellTextColor(c) } }); });
       tableRows.push(row);
     });
-
-    slide.addTable(tableRows, {
-      x: 0.3, y: 1.1, w: 9.4,
-      border: { pt: 0.5, color: 'CCCCCC' },
-      fontFace: 'Arial',
-      rowH: 0.3,
-    });
+    slide.addTable(tableRows, { x: 0.3, y: 1.1, w: 9.4, border: { pt: 0.5, color: 'CCCCCC' }, fontFace: 'Arial', rowH: 0.3 });
     return;
   }
 
@@ -225,85 +175,15 @@ function addPptxTable(slide, cardId, computed, subtitle) {
     const headerRow = [{ text: 'מנתח מפקח', options: { bold: true, fontSize: 7, align: 'right', fill: 'F0F0F0' } }];
     computed.residentNames.forEach(name => headerRow.push({ text: name, options: { bold: true, fontSize: 6, align: 'center', fill: 'F0F0F0' } }));
     headerRow.push({ text: 'סה"כ', options: { bold: true, fontSize: 7, align: 'center', fill: 'F0F0F0' } });
-
     const tableRows = [headerRow];
     computed.rows.forEach(r => {
       const row = [{ text: r.name, options: { fontSize: 7, align: 'right' } }];
-      r.cells.forEach(count => {
-        row.push({ text: String(count), options: { fontSize: 7, align: 'center', bold: true, fill: cellColorHex(count), color: cellTextColor(count) } });
-      });
+      r.cells.forEach(count => row.push({ text: String(count), options: { fontSize: 7, align: 'center', bold: true, fill: cellColorHex(count), color: cellTextColor(count) } }));
       row.push({ text: String(r.total), options: { fontSize: 7, align: 'center', bold: true, fill: 'F0F0F0' } });
       tableRows.push(row);
     });
-
-    slide.addTable(tableRows, {
-      x: 0.3, y: 1.1, w: 9.4,
-      border: { pt: 0.5, color: 'CCCCCC' },
-      fontFace: 'Arial',
-      rowH: 0.3,
-    });
+    slide.addTable(tableRows, { x: 0.3, y: 1.1, w: 9.4, border: { pt: 0.5, color: 'CCCCCC' }, fontFace: 'Arial', rowH: 0.3 });
     return;
-  }
-}
-
-function addPptxChart(slide, cardId, computed, subtitle) {
-  slide.addText(CARD_TITLES[cardId], { x: 0.3, y: 0.2, w: 9.4, h: 0.5, fontSize: 20, fontFace: 'Arial', color: '1a1a1a', align: 'right', rtlMode: true, bold: true });
-  slide.addText(subtitle, { x: 0.3, y: 0.65, w: 9.4, h: 0.3, fontSize: 12, fontFace: 'Arial', color: '666666', align: 'right', rtlMode: true });
-
-  const colors = computed.colors || COLORS.slice(0, computed.data.length);
-  const chartColors = colors.map(c => c.replace('#', ''));
-
-  if (computed.type === 'donut' || computed.type === 'pie') {
-    slide.addChart('doughnut', [
-      {
-        name: 'ניתוחים',
-        labels: computed.data.map(d => d.name),
-        values: computed.data.map(d => d.value),
-      }
-    ], {
-      x: 1.5, y: 1.2, w: 5, h: 4,
-      showLegend: true,
-      legendPos: 'b',
-      legendFontSize: 10,
-      showTitle: false,
-      chartColors: chartColors,
-      dataLabelPosition: 'outEnd',
-      showPercent: true,
-      showValue: false,
-      holeSize: 50,
-    });
-    return;
-  }
-
-  if (computed.type === 'bar') {
-    slide.addChart('bar', [
-      {
-        name: 'ניתוחים',
-        labels: computed.data.map(d => d.name),
-        values: computed.data.map(d => d.value),
-      }
-    ], {
-      x: 0.5, y: 1.2, w: 9, h: 4,
-      showLegend: false,
-      showTitle: false,
-      chartColors: chartColors,
-      barDir: 'bar',
-      catAxisOrientation: 'maxMin',
-      showValue: true,
-      valueFontSize: 10,
-      catAxisLabelFontSize: 10,
-    });
-    return;
-  }
-}
-
-async function addPptxImage(slide, cardId, ref, subtitle) {
-  slide.addText(CARD_TITLES[cardId], { x: 0.3, y: 0.2, w: 9.4, h: 0.5, fontSize: 20, fontFace: 'Arial', color: '1a1a1a', align: 'right', rtlMode: true, bold: true });
-  slide.addText(subtitle, { x: 0.3, y: 0.65, w: 9.4, h: 0.3, fontSize: 12, fontFace: 'Arial', color: '666666', align: 'right', rtlMode: true });
-
-  const base64 = await captureRefAsBase64(ref);
-  if (base64) {
-    slide.addImage({ data: base64, x: 0.5, y: 1.1, w: 9, h: 4.2, sizing: { type: 'contain', w: 9, h: 4.2 } });
   }
 }
 
@@ -314,15 +194,6 @@ function isTableType(cardId, chartTypes) {
   return false;
 }
 
-function isNativeChartType(cardId, chartTypes) {
-  const type = chartTypes[cardId] || (cardId === 6 ? 'donut' : 'donut');
-  if (cardId === 1 && (type === 'donut' || type === 'bar')) return true;
-  if (cardId === 4 && (type === 'donut' || type === 'bar')) return true;
-  if (cardId === 5) return true;
-  if (cardId === 6) return true;
-  return false;
-}
-
 export async function downloadPptx({ selected, chartTypes, showTop3, refs, surgeries, residents, selectedMonth, selectedYear }) {
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_WIDE';
@@ -330,7 +201,6 @@ export async function downloadPptx({ selected, chartTypes, showTop3, refs, surge
 
   const subtitle = `${MONTHS_HE_FULL[selectedMonth]} ${selectedYear}`;
 
-  // Title slide
   const titleSlide = pptx.addSlide();
   titleSlide.addText('דוח הכשרת קטרקט', { x: 0.5, y: 1.5, w: 9, h: 1.2, fontSize: 36, fontFace: 'Arial', color: '1a1a1a', align: 'center', bold: true, rtlMode: true });
   titleSlide.addText(subtitle, { x: 0.5, y: 2.8, w: 9, h: 0.6, fontSize: 18, fontFace: 'Arial', color: '666666', align: 'center', rtlMode: true });
@@ -342,12 +212,16 @@ export async function downloadPptx({ selected, chartTypes, showTop3, refs, surge
     const slide = pptx.addSlide();
     const computed = computeChartData(cardId, { surgeries, residents, selectedMonth, selectedYear, chartTypes, showTop3 });
 
+    slide.addText(CARD_TITLES[cardId], { x: 0.3, y: 0.2, w: 9.4, h: 0.5, fontSize: 20, fontFace: 'Arial', color: '1a1a1a', align: 'right', rtlMode: true, bold: true });
+    slide.addText(subtitle, { x: 0.3, y: 0.65, w: 9.4, h: 0.3, fontSize: 12, fontFace: 'Arial', color: '666666', align: 'right', rtlMode: true });
+
     if (isTableType(cardId, chartTypes)) {
       addPptxTable(slide, cardId, computed, subtitle);
-    } else if (isNativeChartType(cardId, chartTypes)) {
-      addPptxChart(slide, cardId, computed, subtitle);
     } else {
-      await addPptxImage(slide, cardId, refs[cardId], subtitle);
+      const base64 = await getRefImage(refs[cardId]);
+      if (base64) {
+        slide.addImage({ data: base64, x: 0.5, y: 1.1, w: 9, h: 4.2, sizing: { type: 'contain', w: 9, h: 4.2 } });
+      }
     }
   }
 
@@ -357,12 +231,11 @@ export async function downloadPptx({ selected, chartTypes, showTop3, refs, surge
 
 export async function downloadImages({ selected, refs }) {
   const selectedIds = Object.entries(selected).filter(([_, v]) => v).map(([k]) => parseInt(k));
-
   if (selectedIds.length === 0) return;
 
   if (selectedIds.length === 1) {
     const cardId = selectedIds[0];
-    const blob = await captureRefAsBlob(refs[cardId]);
+    const blob = await getRefBlob(refs[cardId]);
     if (!blob) return;
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -375,10 +248,8 @@ export async function downloadImages({ selected, refs }) {
 
   const zip = new JSZip();
   for (const cardId of selectedIds) {
-    const blob = await captureRefAsBlob(refs[cardId]);
-    if (blob) {
-      zip.file(`${FILE_NAMES[cardId]}.png`, blob);
-    }
+    const blob = await getRefBlob(refs[cardId]);
+    if (blob) zip.file(`${FILE_NAMES[cardId]}.png`, blob);
   }
 
   const zipBlob = await zip.generateAsync({ type: 'blob' });

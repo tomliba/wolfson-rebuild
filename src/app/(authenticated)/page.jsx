@@ -18,6 +18,7 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [summaryView, setSummaryView] = useState('month');
 
   useEffect(() => {
     auth.me().then(setUser);
@@ -165,29 +166,38 @@ export default function Dashboard() {
   const taskProgress = tasks.length > 0 ? (completions.length / tasks.length) * 100 : 0;
   const filteredVideosPresented = filteredVideos.filter(v => v.presented_in_meeting).length;
 
-  const phacolaserCount = filteredSurgeries.filter(s => s.surgery_type === 'phacolaser').length;
+  const yearlySurgeries = surgeries.filter(s => {
+    if (!s.surgery_date) return false;
+    const d = new Date(s.surgery_date);
+    return d.getFullYear() === selectedYear;
+  });
 
-  const toricCount = filteredSurgeries.filter(s =>
+  const summarySurgeries = summaryView === 'year' ? yearlySurgeries : filteredSurgeries;
+
+  const phacolaserCount = summarySurgeries.filter(s => s.surgery_type === 'phacolaser').length;
+
+  const toricCount = summarySurgeries.filter(s =>
     s.steps_performed?.includes('laser_toric_iol') || s.steps_performed?.includes('toric_iol')
   ).length;
 
   const complexSurgeries = {
-    pupilExpansion: filteredSurgeries.filter(s => s.notes?.includes('הרחבת אישון') || s.complications?.includes('הרחבת אישון')).length,
-    matureICE: filteredSurgeries.filter(s => s.notes?.includes('ירוד בשל') || s.complications?.includes('ירוד בשל')).length,
-    deepSet: filteredSurgeries.filter(s => s.notes?.includes('עין שקועה') || s.complications?.includes('עין שקועה')).length,
-    shallowAC: filteredSurgeries.filter(s => s.notes?.includes('לשכה קדמית רדודה') || s.complications?.includes('לשכה קדמית רדודה')).length,
+    pupilExpansion: summarySurgeries.filter(s => s.notes?.includes('הרחבת אישון') || s.complications?.includes('הרחבת אישון')).length,
+    matureICE: summarySurgeries.filter(s => s.notes?.includes('ירוד בשל') || s.complications?.includes('ירוד בשל')).length,
+    deepSet: summarySurgeries.filter(s => s.notes?.includes('עין שקועה') || s.complications?.includes('עין שקועה')).length,
+    shallowAC: summarySurgeries.filter(s => s.notes?.includes('לשכה קדמית רדודה') || s.complications?.includes('לשכה קדמית רדודה')).length,
   };
   const totalComplex = Object.values(complexSurgeries).reduce((a, b) => a + b, 0);
 
   const complications = {
-    anteriorCapsuleTear: filteredSurgeries.filter(s => s.complications?.includes('קרע בקופסית קדמית')).length,
-    posteriorCapsuleTear: filteredSurgeries.filter(s => s.complications?.includes('קרע בקופסית אחורית')).length,
-    zonulysis: filteredSurgeries.filter(s => s.complications?.includes('זונוליזיס')).length,
-    anteriorVitrectomy: filteredSurgeries.filter(s => s.complications?.includes('ויטרקטומיה קדמית')).length,
-    sulcusIOL: filteredSurgeries.filter(s => s.complications?.includes('השתלת עדשה בסולקוס')).length,
+    anteriorCapsuleTear: summarySurgeries.filter(s => s.complications?.includes('קרע בקופסית קדמית')).length,
+    posteriorCapsuleTear: summarySurgeries.filter(s => s.complications?.includes('קרע בקופסית אחורית')).length,
+    zonulysis: summarySurgeries.filter(s => s.complications?.includes('זונוליזיס')).length,
+    anteriorVitrectomy: summarySurgeries.filter(s => s.complications?.includes('ויטרקטומיה קדמית')).length,
+    sulcusIOL: summarySurgeries.filter(s => s.complications?.includes('השתלת עדשה בסולקוס')).length,
   };
   const totalComplications = Object.values(complications).reduce((a, b) => a + b, 0);
 
+  const MONTHS_HE_FULL = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
   const MONTHS_HE = ['ינו','פבר','מרץ','אפר','מאי','יונ','יול','אוג','ספט','אוק','נוב','דצמ'];
   const monthlyCounts = MONTHS_HE.map((name, i) => {
     const monthly = surgeries.filter(s => {
@@ -203,21 +213,21 @@ export default function Dashboard() {
     return { ...d, מצטבר: cumulative };
   });
 
-  const fullSurgeries = filteredSurgeries.filter(s => s.surgery_type !== 'phacolaser' && s.steps_performed?.includes('solo')).length;
-  const manualPartialWithPhaco = filteredSurgeries.filter(s =>
+  const fullSurgeries = summarySurgeries.filter(s => s.surgery_type !== 'phacolaser' && s.steps_performed?.includes('solo')).length;
+  const manualPartialWithPhaco = summarySurgeries.filter(s =>
     s.surgery_type !== 'phacolaser' &&
     !s.steps_performed?.includes('solo') &&
     (s.steps_performed?.length || 0) > 0 &&
     s.steps_performed?.includes('phacoemulsification')
   ).length;
-  const manualPartialWithoutPhaco = filteredSurgeries.filter(s =>
+  const manualPartialWithoutPhaco = summarySurgeries.filter(s =>
     s.surgery_type !== 'phacolaser' &&
     !s.steps_performed?.includes('solo') &&
     (s.steps_performed?.length || 0) > 0 &&
     !s.steps_performed?.includes('phacoemulsification')
   ).length;
   const manualPartialSurgeries = manualPartialWithPhaco + manualPartialWithoutPhaco;
-  const phacoTotal = filteredSurgeries.filter(s => s.surgery_type !== 'phacolaser').length;
+  const phacoTotal = summarySurgeries.filter(s => s.surgery_type !== 'phacolaser').length;
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto" dir="rtl">
@@ -279,11 +289,21 @@ export default function Dashboard() {
         </Card>
 
         <Card className="p-5">
-          <h3 className="text-sm font-semibold text-foreground mb-3">סיכום ניתוחים</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-foreground">סיכום ניתוחים</h3>
+            <div className="flex gap-1 bg-muted rounded-lg p-0.5">
+              <button onClick={() => setSummaryView('month')} className={`px-2 py-0.5 text-[11px] rounded-md transition-colors ${summaryView === 'month' ? 'bg-background shadow-sm font-semibold text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                {MONTHS_HE_FULL[selectedMonth]}
+              </button>
+              <button onClick={() => setSummaryView('year')} className={`px-2 py-0.5 text-[11px] rounded-md transition-colors ${summaryView === 'year' ? 'bg-background shadow-sm font-semibold text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                {selectedYear}
+              </button>
+            </div>
+          </div>
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <span className="text-sm font-bold text-foreground">סה״כ ניתוחים</span>
-              <span className="text-sm font-bold text-foreground">{filteredSurgeries.length}</span>
+              <span className="text-sm font-bold text-foreground">{summarySurgeries.length}</span>
             </div>
             <div className="pr-3 space-y-1.5 border-r-2 border-primary/30">
               <div className="flex justify-between items-center">
