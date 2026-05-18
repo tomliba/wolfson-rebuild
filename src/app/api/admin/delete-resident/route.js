@@ -2,7 +2,34 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 
+const rateLimit = new Map();
+const WINDOW_MS = 60_000;
+const MAX_REQUESTS = 5;
+
+function isRateLimited(ip) {
+  const now = Date.now();
+  const entry = rateLimit.get(ip);
+  if (!entry || now - entry.windowStart > WINDOW_MS) {
+    rateLimit.set(ip, { windowStart: now, count: 1 });
+    return false;
+  }
+  entry.count++;
+  if (entry.count > MAX_REQUESTS) return true;
+  return false;
+}
+
 export async function POST(request) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || 'unknown';
+
+  if (isRateLimited(ip)) {
+    return NextResponse.json(
+      { error: 'Too many requests. Try again later.' },
+      { status: 429 }
+    );
+  }
+
   const serverSupabase = await createServerClient();
   const { data: { user }, error: authError } = await serverSupabase.auth.getUser();
   if (authError || !user) {

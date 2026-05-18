@@ -76,7 +76,7 @@ export default function ReportBuilder({ open, onOpenChange, surgeries, residents
     try {
       await downloadImages({ selected, refs });
     } catch (err) {
-      console.error('Image download failed:', err);
+      console.error('Image download failed:', err.message || err);
       alert('שגיאה בהורדת תמונות');
     } finally {
       setDownloading(null);
@@ -88,7 +88,7 @@ export default function ReportBuilder({ open, onOpenChange, surgeries, residents
     try {
       await downloadPptx({ selected, chartTypes, showTop3, refs, surgeries, residents, selectedMonth, selectedYear });
     } catch (err) {
-      console.error('PPTX download failed:', err);
+      console.error('PPTX download failed:', err.message || err);
       alert('שגיאה בהורדת מצגת');
     } finally {
       setDownloading(null);
