@@ -1,0 +1,32 @@
+{
+  "name": "מערכת מעקב הכשרת קטרקט - וולפסון",
+  "short_name": "הכשרת קטרקט",
+  "description": "מעקב התמחות ניתוחי קטרקט - בית חולים וולפסון",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "dir": "rtl",
+  "lang": "he",
+  "background_color": "#f5f7fa",
+  "theme_color": "#1a73c8",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
