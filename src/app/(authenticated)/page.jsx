@@ -238,7 +238,7 @@ export default function Dashboard() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">סקירת התקדמות בהכשרת קטרקט</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <MonthlyReportPDF user={user} surgeries={surgeries} month={selectedMonth} year={selectedYear} onMonthChange={(v) => setSelectedMonth(parseInt(v))} onYearChange={(v) => setSelectedYear(parseInt(v))} />
           <Button variant="outline" size="sm" onClick={exportToExcel} className="flex items-center gap-2">
             <Download className="w-4 h-4" />

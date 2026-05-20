@@ -391,7 +391,7 @@ export default function AdminPanel() {
             <p className="text-xs text-muted-foreground">{activeResidents.length} מתמחים פעילים{hiddenResidents.length > 0 ? ` | ${hiddenResidents.length} מוסתרים` : ''}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Select value={String(selectedMonth)} onValueChange={(v) => setSelectedMonth(parseInt(v))}>
             <SelectTrigger className="w-28 h-8 text-xs">
               <SelectValue />
